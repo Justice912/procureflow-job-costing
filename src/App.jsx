@@ -1,5 +1,241 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, AreaChart, Area, ComposedChart } from 'recharts';
+
+// ============================================
+// AUTHENTICATION SYSTEM
+// ============================================
+
+// Simple hash function for passwords (for demo - use bcrypt in production)
+const simpleHash = (str) => {
+  let hash = 0;
+  for (let i = 0; i < str.length; i++) {
+    const char = str.charCodeAt(i);
+    hash = ((hash << 5) - hash) + char;
+    hash = hash & hash;
+  }
+  return hash.toString(16);
+};
+
+// Auth Helper Functions
+const authStorage = {
+  getUsers: () => JSON.parse(localStorage.getItem('procureflow_users') || '[]'),
+  saveUsers: (users) => localStorage.setItem('procureflow_users', JSON.stringify(users)),
+  getCurrentUser: () => JSON.parse(localStorage.getItem('procureflow_current_user') || 'null'),
+  setCurrentUser: (user) => localStorage.setItem('procureflow_current_user', JSON.stringify(user)),
+  clearCurrentUser: () => localStorage.removeItem('procureflow_current_user'),
+};
+
+// Login/Register Component
+const AuthScreen = ({ onLogin }) => {
+  const [isLogin, setIsLogin] = useState(true);
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [name, setName] = useState('');
+  const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    setError('');
+    setLoading(true);
+
+    setTimeout(() => {
+      if (isLogin) {
+        // Login
+        const users = authStorage.getUsers();
+        const user = users.find(u => u.email.toLowerCase() === email.toLowerCase());
+        
+        if (!user) {
+          setError('No account found with this email');
+          setLoading(false);
+          return;
+        }
+        
+        if (user.passwordHash !== simpleHash(password)) {
+          setError('Incorrect password');
+          setLoading(false);
+          return;
+        }
+        
+        const sessionUser = { id: user.id, email: user.email, name: user.name };
+        authStorage.setCurrentUser(sessionUser);
+        onLogin(sessionUser);
+      } else {
+        // Register
+        if (!name.trim()) {
+          setError('Please enter your name');
+          setLoading(false);
+          return;
+        }
+        
+        if (!email.includes('@')) {
+          setError('Please enter a valid email');
+          setLoading(false);
+          return;
+        }
+        
+        if (password.length < 6) {
+          setError('Password must be at least 6 characters');
+          setLoading(false);
+          return;
+        }
+        
+        if (password !== confirmPassword) {
+          setError('Passwords do not match');
+          setLoading(false);
+          return;
+        }
+        
+        const users = authStorage.getUsers();
+        if (users.find(u => u.email.toLowerCase() === email.toLowerCase())) {
+          setError('An account with this email already exists');
+          setLoading(false);
+          return;
+        }
+        
+        const newUser = {
+          id: String(Date.now()),
+          email: email.toLowerCase(),
+          name: name.trim(),
+          passwordHash: simpleHash(password),
+          createdAt: new Date().toISOString()
+        };
+        
+        users.push(newUser);
+        authStorage.saveUsers(users);
+        
+        const sessionUser = { id: newUser.id, email: newUser.email, name: newUser.name };
+        authStorage.setCurrentUser(sessionUser);
+        onLogin(sessionUser);
+      }
+      setLoading(false);
+    }, 500);
+  };
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900 flex items-center justify-center p-4">
+      <div className="w-full max-w-md">
+        {/* Logo */}
+        <div className="text-center mb-8">
+          <div className="inline-flex items-center justify-center w-16 h-16 bg-gradient-to-br from-blue-500 to-cyan-500 rounded-2xl mb-4">
+            <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2">
+              <path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/>
+            </svg>
+          </div>
+          <h1 className="text-3xl font-bold text-white">ProcureFlow</h1>
+          <p className="text-blue-200 mt-2">Multi-Company Job Costing System</p>
+        </div>
+
+        {/* Auth Card */}
+        <div className="bg-white rounded-2xl shadow-2xl p-8">
+          <h2 className="text-2xl font-bold text-slate-900 mb-2">
+            {isLogin ? 'Welcome back' : 'Create account'}
+          </h2>
+          <p className="text-slate-500 mb-6">
+            {isLogin ? 'Sign in to your account' : 'Get started with ProcureFlow'}
+          </p>
+
+          {error && (
+            <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg text-red-600 text-sm">
+              {error}
+            </div>
+          )}
+
+          <form onSubmit={handleSubmit} className="space-y-4">
+            {!isLogin && (
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">Full Name</label>
+                <input
+                  type="text"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  placeholder="John Doe"
+                  className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                  required={!isLogin}
+                />
+              </div>
+            )}
+            
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-1">Email Address</label>
+              <input
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="you@example.com"
+                className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                required
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-1">Password</label>
+              <input
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="••••••••"
+                className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                required
+              />
+            </div>
+
+            {!isLogin && (
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">Confirm Password</label>
+                <input
+                  type="password"
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  placeholder="••••••••"
+                  className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                  required={!isLogin}
+                />
+              </div>
+            )}
+
+            <button
+              type="submit"
+              disabled={loading}
+              className="w-full py-3 bg-gradient-to-r from-blue-600 to-cyan-600 text-white rounded-lg font-semibold hover:from-blue-700 hover:to-cyan-700 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {loading ? (
+                <span className="flex items-center justify-center gap-2">
+                  <svg className="animate-spin h-5 w-5" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none"/>
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
+                  </svg>
+                  {isLogin ? 'Signing in...' : 'Creating account...'}
+                </span>
+              ) : (
+                isLogin ? 'Sign In' : 'Create Account'
+              )}
+            </button>
+          </form>
+
+          <div className="mt-6 text-center">
+            <p className="text-slate-600">
+              {isLogin ? "Don't have an account?" : "Already have an account?"}
+              <button
+                type="button"
+                onClick={() => { setIsLogin(!isLogin); setError(''); }}
+                className="ml-2 text-blue-600 font-semibold hover:text-blue-700"
+              >
+                {isLogin ? 'Sign up' : 'Sign in'}
+              </button>
+            </p>
+          </div>
+        </div>
+
+        {/* Footer */}
+        <p className="text-center text-blue-200/60 text-sm mt-6">
+          © {new Date().getFullYear()} ProcureFlow. All rights reserved.
+        </p>
+      </div>
+    </div>
+  );
+};
 
 // ============================================
 // MULTI-COMPANY & INDUSTRY CONFIG
@@ -404,6 +640,7 @@ const Icons = {
   MapPin: () => <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M20 10c0 4.993-5.539 10.193-7.399 11.799a1 1 0 0 1-1.202 0C9.539 20.193 4 14.993 4 10a8 8 0 0 1 16 0"/><circle cx="12" cy="10" r="3"/></svg>,
   Circle: () => <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/></svg>,
   MoreHorizontal: () => <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/></svg>,
+  LogOut: () => <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" x2="9" y1="12" y2="12"/></svg>,
 };
 
 // ============================================
@@ -918,10 +1155,13 @@ const getModuleIcon = (module) => {
 // ============================================
 
 export default function MultiCompanyJobCosting() {
+  const [currentUser, setCurrentUser] = useState(null);
+  const [authLoading, setAuthLoading] = useState(true);
   const [companies, setCompanies] = useState(initialCompanies);
   const [selectedCompany, setSelectedCompany] = useState(initialCompanies[0]);
   const [activeModule, setActiveModule] = useState('dashboard');
   const [showManageCompanies, setShowManageCompanies] = useState(false);
+  const [showAddCompany, setShowAddCompany] = useState(false);
   const [budgets, setBudgets] = useState(initialBudgets);
   const [actuals, setActuals] = useState(initialActuals);
   const [fleet, setFleet] = useState(initialFleet);
@@ -929,6 +1169,135 @@ export default function MultiCompanyJobCosting() {
   const [assets, setAssets] = useState(initialAssets);
   const [showAssetModal, setShowAssetModal] = useState(false);
   const [editAsset, setEditAsset] = useState(null);
+  const [newCompany, setNewCompany] = useState({
+    name: '',
+    tradingAs: '',
+    code: '',
+    regNo: '',
+    vatNo: '',
+    industry: 'haulage',
+    status: 'Active'
+  });
+
+  // Check for existing session on mount
+  useEffect(() => {
+    const user = authStorage.getCurrentUser();
+    if (user) {
+      setCurrentUser(user);
+    }
+    setAuthLoading(false);
+  }, []);
+
+  // Handle logout
+  const handleLogout = () => {
+    if (confirm('Are you sure you want to sign out?')) {
+      authStorage.clearCurrentUser();
+      setCurrentUser(null);
+    }
+  };
+
+  // Show loading while checking auth
+  if (authLoading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900 flex items-center justify-center">
+        <div className="text-center">
+          <div className="inline-flex items-center justify-center w-16 h-16 bg-gradient-to-br from-blue-500 to-cyan-500 rounded-2xl mb-4 animate-pulse">
+            <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2">
+              <path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/>
+            </svg>
+          </div>
+          <p className="text-blue-200">Loading...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Show login screen if not authenticated
+  if (!currentUser) {
+    return <AuthScreen onLogin={setCurrentUser} />;
+  }
+
+  // Handle adding a new company
+  const handleAddCompany = () => {
+    if (!newCompany.name || !newCompany.code) {
+      alert('Please fill in Company Name and Company Code');
+      return;
+    }
+    
+    const companyId = String(Date.now());
+    const company = {
+      id: companyId,
+      ...newCompany
+    };
+    
+    setCompanies([...companies, company]);
+    
+    // Initialize empty data for the new company
+    setBudgets(prev => ({ ...prev, [companyId]: { annual: {}, monthly: {} } }));
+    setActuals(prev => ({ ...prev, [companyId]: { monthly: {}, byTruck: {}, byRoute: {} } }));
+    setFleet(prev => ({ ...prev, [companyId]: { trucks: [], trailers: [] } }));
+    setJobs(prev => ({ ...prev, [companyId]: { jobs: [] } }));
+    setAssets(prev => ({ ...prev, [companyId]: [] }));
+    
+    // Reset form and close modal
+    setNewCompany({
+      name: '',
+      tradingAs: '',
+      code: '',
+      regNo: '',
+      vatNo: '',
+      industry: 'haulage',
+      status: 'Active'
+    });
+    setShowAddCompany(false);
+    
+    // Select the new company
+    setSelectedCompany(company);
+  };
+
+  // Handle deleting a company
+  const handleDeleteCompany = (companyId) => {
+    if (companies.length <= 1) {
+      alert('Cannot delete the last company. At least one company must exist.');
+      return;
+    }
+    
+    const companyToDelete = companies.find(c => c.id === companyId);
+    if (!confirm(`Are you sure you want to delete "${companyToDelete?.name}"?\n\nThis will permanently remove all associated data including budgets, actuals, fleet, jobs, and assets.`)) {
+      return;
+    }
+    
+    // Remove company from list
+    const updatedCompanies = companies.filter(c => c.id !== companyId);
+    setCompanies(updatedCompanies);
+    
+    // Clean up associated data
+    setBudgets(prev => {
+      const { [companyId]: _, ...rest } = prev;
+      return rest;
+    });
+    setActuals(prev => {
+      const { [companyId]: _, ...rest } = prev;
+      return rest;
+    });
+    setFleet(prev => {
+      const { [companyId]: _, ...rest } = prev;
+      return rest;
+    });
+    setJobs(prev => {
+      const { [companyId]: _, ...rest } = prev;
+      return rest;
+    });
+    setAssets(prev => {
+      const { [companyId]: _, ...rest } = prev;
+      return rest;
+    });
+    
+    // If deleted company was selected, select another one
+    if (selectedCompany?.id === companyId) {
+      setSelectedCompany(updatedCompanies[0]);
+    }
+  };
 
   const config = industryConfig[selectedCompany?.industry] || industryConfig.haulage;
 
@@ -993,8 +1362,27 @@ export default function MultiCompanyJobCosting() {
               <h1 className="text-xl font-bold text-slate-900">ProcureFlow</h1>
               <Badge variant="info">Multi-Company</Badge>
             </div>
-            <div className="w-80">
-              <CompanySelector companies={companies} selectedCompany={selectedCompany} onSelect={setSelectedCompany} onManage={() => setShowManageCompanies(true)} />
+            <div className="flex items-center gap-4">
+              <div className="w-72">
+                <CompanySelector companies={companies} selectedCompany={selectedCompany} onSelect={setSelectedCompany} onManage={() => setShowManageCompanies(true)} />
+              </div>
+              {/* User Menu */}
+              <div className="flex items-center gap-3 pl-4 border-l border-slate-200">
+                <div className="text-right hidden sm:block">
+                  <p className="text-sm font-medium text-slate-900">{currentUser?.name}</p>
+                  <p className="text-xs text-slate-500">{currentUser?.email}</p>
+                </div>
+                <div className="w-9 h-9 rounded-full bg-gradient-to-br from-blue-500 to-cyan-500 flex items-center justify-center text-white font-semibold text-sm">
+                  {currentUser?.name?.charAt(0).toUpperCase() || 'U'}
+                </div>
+                <button
+                  onClick={handleLogout}
+                  className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                  title="Sign out"
+                >
+                  <Icons.LogOut />
+                </button>
+              </div>
             </div>
           </div>
         </div>
@@ -1033,23 +1421,164 @@ export default function MultiCompanyJobCosting() {
       {/* Company Management Modal */}
       <Modal isOpen={showManageCompanies} onClose={() => setShowManageCompanies(false)} title="Manage Companies" size="lg">
         <div className="space-y-4">
-          <p className="text-slate-600">{companies.length} companies registered</p>
+          <div className="flex justify-between items-center">
+            <p className="text-slate-600">{companies.length} companies registered</p>
+            <button
+              onClick={() => { setShowManageCompanies(false); setShowAddCompany(true); }}
+              className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700"
+            >
+              <Icons.Plus /> Add Company
+            </button>
+          </div>
           <div className="space-y-3">
             {companies.map(company => {
               const compConfig = industryConfig[company.industry] || industryConfig.haulage;
               return (
-                <div key={company.id} className="flex items-center gap-4 p-4 border rounded-xl">
-                  <div className={`p-3 rounded-lg bg-gradient-to-br ${compConfig.color} text-white`}>
+                <div key={company.id} className="flex items-center gap-4 p-4 border rounded-xl hover:border-blue-300 transition-colors">
+                  <div 
+                    className={`p-3 rounded-lg bg-gradient-to-br ${compConfig.color} text-white cursor-pointer`}
+                    onClick={() => { setSelectedCompany(company); setShowManageCompanies(false); }}
+                  >
                     {Icons[compConfig.icon] ? Icons[compConfig.icon]() : <Icons.Building />}
                   </div>
-                  <div className="flex-1">
+                  <div 
+                    className="flex-1 cursor-pointer"
+                    onClick={() => { setSelectedCompany(company); setShowManageCompanies(false); }}
+                  >
                     <h3 className="font-semibold">{company.name}</h3>
                     <p className="text-sm text-slate-500">{compConfig.label} • {company.code}</p>
                   </div>
                   <Badge variant={company.status === 'Active' ? 'success' : 'secondary'}>{company.status}</Badge>
+                  <button
+                    onClick={(e) => { e.stopPropagation(); handleDeleteCompany(company.id); }}
+                    className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                    title="Delete company"
+                  >
+                    <Icons.Trash />
+                  </button>
                 </div>
               );
             })}
+          </div>
+        </div>
+      </Modal>
+
+      {/* Add Company Modal */}
+      <Modal isOpen={showAddCompany} onClose={() => setShowAddCompany(false)} title="Add New Company" size="lg">
+        <div className="space-y-6">
+          {/* Industry Selection */}
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-3">Select Industry / Module Type</label>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+              {Object.entries(industryConfig).map(([key, cfg]) => (
+                <button
+                  key={key}
+                  type="button"
+                  onClick={() => setNewCompany({ ...newCompany, industry: key })}
+                  className={`p-4 rounded-xl border-2 text-left transition-all ${
+                    newCompany.industry === key 
+                      ? 'border-blue-500 bg-blue-50' 
+                      : 'border-slate-200 hover:border-slate-300'
+                  }`}
+                >
+                  <div className={`p-3 rounded-lg bg-gradient-to-br ${cfg.color} text-white w-fit mb-2`}>
+                    {Icons[cfg.icon] ? Icons[cfg.icon]() : <Icons.Building />}
+                  </div>
+                  <p className="font-semibold text-slate-900">{cfg.label}</p>
+                  <p className="text-xs text-slate-500 mt-1">{cfg.modules.length} modules</p>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Company Details Form */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-1">Company Name *</label>
+              <input
+                type="text"
+                value={newCompany.name}
+                onChange={(e) => setNewCompany({ ...newCompany, name: e.target.value })}
+                placeholder="e.g. ABC Transport Pty Ltd"
+                className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-1">Trading As</label>
+              <input
+                type="text"
+                value={newCompany.tradingAs}
+                onChange={(e) => setNewCompany({ ...newCompany, tradingAs: e.target.value })}
+                placeholder="e.g. ABC Transport"
+                className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-1">Company Code *</label>
+              <input
+                type="text"
+                value={newCompany.code}
+                onChange={(e) => setNewCompany({ ...newCompany, code: e.target.value.toUpperCase() })}
+                placeholder="e.g. ABC"
+                maxLength={5}
+                className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 uppercase"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-1">Registration Number</label>
+              <input
+                type="text"
+                value={newCompany.regNo}
+                onChange={(e) => setNewCompany({ ...newCompany, regNo: e.target.value })}
+                placeholder="e.g. 2020/123456/07"
+                className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-1">VAT Number</label>
+              <input
+                type="text"
+                value={newCompany.vatNo}
+                onChange={(e) => setNewCompany({ ...newCompany, vatNo: e.target.value })}
+                placeholder="e.g. 4123456789"
+                className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-1">Status</label>
+              <select
+                value={newCompany.status}
+                onChange={(e) => setNewCompany({ ...newCompany, status: e.target.value })}
+                className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              >
+                <option value="Active">Active</option>
+                <option value="Inactive">Inactive</option>
+              </select>
+            </div>
+          </div>
+
+          {/* Selected Industry Info */}
+          <div className={`p-4 rounded-lg bg-gradient-to-r ${industryConfig[newCompany.industry]?.color || 'from-blue-500 to-cyan-600'} text-white`}>
+            <p className="font-semibold">{industryConfig[newCompany.industry]?.label} Modules:</p>
+            <p className="text-sm text-white/80 mt-1">
+              {industryConfig[newCompany.industry]?.modules.map(m => m.charAt(0).toUpperCase() + m.slice(1)).join(' • ')}
+            </p>
+          </div>
+
+          {/* Action Buttons */}
+          <div className="flex justify-end gap-3 pt-4 border-t">
+            <button
+              onClick={() => setShowAddCompany(false)}
+              className="px-4 py-2 text-slate-600 hover:bg-slate-100 rounded-lg"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={handleAddCompany}
+              className="px-6 py-2 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700"
+            >
+              Create Company
+            </button>
           </div>
         </div>
       </Modal>

@@ -2,6 +2,129 @@ import { useState, useEffect } from 'react';
 import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, AreaChart, Area, ComposedChart } from 'recharts';
 
 // ============================================
+// FIREBASE CONFIGURATION
+// ============================================
+
+// Firebase SDK loaded via CDN in index.html
+// Initialize Firebase - Replace with your own config from Firebase Console
+const firebaseConfig = {
+  apiKey: "YOUR_API_KEY",
+  authDomain: "YOUR_PROJECT.firebaseapp.com",
+  projectId: "YOUR_PROJECT_ID",
+  storageBucket: "YOUR_PROJECT.appspot.com",
+  messagingSenderId: "YOUR_SENDER_ID",
+  appId: "YOUR_APP_ID"
+};
+
+// Firebase initialization (will be set when Firebase loads)
+let db = null;
+let firebaseAuth = null;
+let firebaseInitialized = false;
+
+const initializeFirebase = () => {
+  if (typeof window !== 'undefined' && window.firebase && !firebaseInitialized) {
+    try {
+      // Check if already initialized
+      if (!window.firebase.apps?.length) {
+        window.firebase.initializeApp(firebaseConfig);
+      }
+      db = window.firebase.firestore();
+      firebaseAuth = window.firebase.auth();
+      firebaseInitialized = true;
+      console.log('Firebase initialized successfully');
+      return true;
+    } catch (error) {
+      console.log('Firebase not configured, using local storage:', error.message);
+      return false;
+    }
+  }
+  return false;
+};
+
+// Cloud Storage Functions
+const cloudStorage = {
+  isAvailable: () => firebaseInitialized && db !== null,
+  
+  // Save data to Firestore
+  saveData: async (userId, key, data) => {
+    if (!cloudStorage.isAvailable() || !userId) {
+      return false;
+    }
+    try {
+      await db.collection('users').doc(userId).collection('data').doc(key).set({
+        data: JSON.stringify(data),
+        updatedAt: new Date().toISOString()
+      });
+      return true;
+    } catch (error) {
+      console.error(`Cloud save error (${key}):`, error);
+      return false;
+    }
+  },
+  
+  // Load data from Firestore
+  loadData: async (userId, key) => {
+    if (!cloudStorage.isAvailable() || !userId) {
+      return null;
+    }
+    try {
+      const doc = await db.collection('users').doc(userId).collection('data').doc(key).get();
+      if (doc.exists) {
+        return JSON.parse(doc.data().data);
+      }
+      return null;
+    } catch (error) {
+      console.error(`Cloud load error (${key}):`, error);
+      return null;
+    }
+  },
+  
+  // Load all user data
+  loadAllData: async (userId) => {
+    if (!cloudStorage.isAvailable() || !userId) {
+      return null;
+    }
+    try {
+      const snapshot = await db.collection('users').doc(userId).collection('data').get();
+      const data = {};
+      snapshot.forEach(doc => {
+        try {
+          data[doc.id] = JSON.parse(doc.data().data);
+        } catch (e) {
+          data[doc.id] = doc.data().data;
+        }
+      });
+      return Object.keys(data).length > 0 ? data : null;
+    } catch (error) {
+      console.error('Cloud load all error:', error);
+      return null;
+    }
+  },
+  
+  // Save all data at once
+  saveAllData: async (userId, allData) => {
+    if (!cloudStorage.isAvailable() || !userId) {
+      return false;
+    }
+    try {
+      const batch = db.batch();
+      Object.entries(allData).forEach(([key, value]) => {
+        const ref = db.collection('users').doc(userId).collection('data').doc(key);
+        batch.set(ref, {
+          data: JSON.stringify(value),
+          updatedAt: new Date().toISOString()
+        });
+      });
+      await batch.commit();
+      return true;
+    } catch (error) {
+      console.error('Cloud save all error:', error);
+      return false;
+    }
+  }
+};
+
+// ============================================
 // AUTHENTICATION SYSTEM
 // ============================================
 
@@ -25,12 +148,15 @@ const authStorage = {
   clearCurrentUser: () => localStorage.removeItem('procureflow_current_user'),
 };
 
-// Data Storage Helper Functions - Persists all app data
+// Data Storage Helper Functions - Supports both local and cloud storage
 const dataStorage = {
   getData: (key, defaultValue) => {
     try {
       const saved = localStorage.getItem(`procureflow_${key}`);
-      return saved ? JSON.parse(saved) : defaultValue;
+      if (saved && saved !== 'undefined') {
+        return JSON.parse(saved);
+      }
+      return defaultValue;
     } catch (e) {
       console.error(`Error loading ${key}:`, e);
       return defaultValue;
@@ -39,13 +165,49 @@ const dataStorage = {
   saveData: (key, value) => {
     try {
       localStorage.setItem(`procureflow_${key}`, JSON.stringify(value));
+      return true;
     } catch (e) {
       console.error(`Error saving ${key}:`, e);
+      return false;
     }
   },
-  clearAllData: () => {
-    const keys = ['companies', 'budgets', 'actuals', 'fleet', 'jobs', 'assets', 'selectedCompanyId'];
-    keys.forEach(key => localStorage.removeItem(`procureflow_${key}`));
+  loadAllData: () => {
+    return {
+      companies: dataStorage.getData('companies', null),
+      budgets: dataStorage.getData('budgets', null),
+      actuals: dataStorage.getData('actuals', null),
+      fleet: dataStorage.getData('fleet', null),
+      jobs: dataStorage.getData('jobs', null),
+      assets: dataStorage.getData('assets', null),
+      selectedCompanyId: dataStorage.getData('selectedCompanyId', null),
+    };
+  },
+  // Sync with cloud (call after saving locally)
+  syncToCloud: async (userId, key, value) => {
+    if (cloudStorage.isAvailable() && userId) {
+      await cloudStorage.saveData(userId, key, value);
+    }
+  },
+  // Load from cloud and merge with local
+  syncFromCloud: async (userId) => {
+    if (!cloudStorage.isAvailable() || !userId) {
+      return null;
+    }
+    try {
+      const cloudData = await cloudStorage.loadAllData(userId);
+      if (cloudData) {
+        // Save cloud data to local storage as backup
+        Object.entries(cloudData).forEach(([key, value]) => {
+          if (value) {
+            localStorage.setItem(`procureflow_${key}`, JSON.stringify(value));
+          }
+        });
+      }
+      return cloudData;
+    } catch (e) {
+      console.error('Cloud sync error:', e);
+      return null;
+    }
   }
 };
 
@@ -1182,20 +1344,23 @@ export default function MultiCompanyJobCosting() {
   const [currentUser, setCurrentUser] = useState(null);
   const [authLoading, setAuthLoading] = useState(true);
   const [dataLoaded, setDataLoaded] = useState(false);
+  const [cloudEnabled, setCloudEnabled] = useState(false);
+  const [syncStatus, setSyncStatus] = useState('idle'); // 'idle', 'syncing', 'synced', 'error'
   
-  // Load saved data or use initial defaults
-  const [companies, setCompanies] = useState(() => dataStorage.getData('companies', initialCompanies));
-  const [selectedCompany, setSelectedCompany] = useState(null);
+  // Initialize with defaults - will be overwritten by saved data
+  const [companies, setCompanies] = useState(initialCompanies);
+  const [selectedCompany, setSelectedCompany] = useState(initialCompanies[0]);
   const [activeModule, setActiveModule] = useState('dashboard');
   const [showManageCompanies, setShowManageCompanies] = useState(false);
   const [showAddCompany, setShowAddCompany] = useState(false);
-  const [budgets, setBudgets] = useState(() => dataStorage.getData('budgets', initialBudgets));
-  const [actuals, setActuals] = useState(() => dataStorage.getData('actuals', initialActuals));
-  const [fleet, setFleet] = useState(() => dataStorage.getData('fleet', initialFleet));
-  const [jobs, setJobs] = useState(() => dataStorage.getData('jobs', initialJobs));
-  const [assets, setAssets] = useState(() => dataStorage.getData('assets', initialAssets));
+  const [budgets, setBudgets] = useState(initialBudgets);
+  const [actuals, setActuals] = useState(initialActuals);
+  const [fleet, setFleet] = useState(initialFleet);
+  const [jobs, setJobs] = useState(initialJobs);
+  const [assets, setAssets] = useState(initialAssets);
   const [showAssetModal, setShowAssetModal] = useState(false);
   const [editAsset, setEditAsset] = useState(null);
+  const [lastSaved, setLastSaved] = useState(null);
   const [newCompany, setNewCompany] = useState({
     name: '',
     tradingAs: '',
@@ -1206,73 +1371,120 @@ export default function MultiCompanyJobCosting() {
     status: 'Active'
   });
 
-  // Check for existing session and load saved data on mount
+  // Initialize Firebase and load data on mount
   useEffect(() => {
-    const user = authStorage.getCurrentUser();
-    if (user) {
-      setCurrentUser(user);
-    }
+    const initApp = async () => {
+      // Initialize Firebase
+      const firebaseReady = initializeFirebase();
+      setCloudEnabled(firebaseReady);
+      
+      // Check auth
+      const user = authStorage.getCurrentUser();
+      if (user) {
+        setCurrentUser(user);
+        
+        // Try to load from cloud first if Firebase is available
+        if (firebaseReady) {
+          setSyncStatus('syncing');
+          const cloudData = await dataStorage.syncFromCloud(user.id);
+          if (cloudData) {
+            if (cloudData.companies) setCompanies(cloudData.companies);
+            if (cloudData.budgets) setBudgets(cloudData.budgets);
+            if (cloudData.actuals) setActuals(cloudData.actuals);
+            if (cloudData.fleet) setFleet(cloudData.fleet);
+            if (cloudData.jobs) setJobs(cloudData.jobs);
+            if (cloudData.assets) setAssets(cloudData.assets);
+            
+            const comps = cloudData.companies || initialCompanies;
+            if (cloudData.selectedCompanyId) {
+              const found = comps.find(c => c.id === cloudData.selectedCompanyId);
+              if (found) setSelectedCompany(found);
+            }
+            setSyncStatus('synced');
+            setDataLoaded(true);
+            setAuthLoading(false);
+            return;
+          }
+          setSyncStatus('idle');
+        }
+      }
+      
+      // Fall back to local storage
+      const savedData = dataStorage.loadAllData();
+      if (savedData.companies) setCompanies(savedData.companies);
+      if (savedData.budgets) setBudgets(savedData.budgets);
+      if (savedData.actuals) setActuals(savedData.actuals);
+      if (savedData.fleet) setFleet(savedData.fleet);
+      if (savedData.jobs) setJobs(savedData.jobs);
+      if (savedData.assets) setAssets(savedData.assets);
+      
+      const comps = savedData.companies || initialCompanies;
+      if (savedData.selectedCompanyId) {
+        const found = comps.find(c => c.id === savedData.selectedCompanyId);
+        if (found) setSelectedCompany(found);
+      }
+      
+      setDataLoaded(true);
+      setAuthLoading(false);
+    };
     
-    // Load saved selected company
-    const savedCompanyId = dataStorage.getData('selectedCompanyId', null);
-    const loadedCompanies = dataStorage.getData('companies', initialCompanies);
-    if (savedCompanyId) {
-      const savedCompany = loadedCompanies.find(c => c.id === savedCompanyId);
-      setSelectedCompany(savedCompany || loadedCompanies[0]);
-    } else {
-      setSelectedCompany(loadedCompanies[0]);
-    }
-    
-    setDataLoaded(true);
-    setAuthLoading(false);
+    initApp();
   }, []);
 
-  // Save companies whenever they change
+  // Helper function to save data (local + cloud)
+  const saveDataWithSync = async (key, value) => {
+    // Save locally first
+    dataStorage.saveData(key, value);
+    setLastSaved(new Date());
+    
+    // Then sync to cloud if available
+    if (cloudEnabled && currentUser) {
+      setSyncStatus('syncing');
+      const success = await cloudStorage.saveData(currentUser.id, key, value);
+      setSyncStatus(success ? 'synced' : 'error');
+    }
+  };
+
+  // Auto-save all data whenever it changes
   useEffect(() => {
     if (dataLoaded) {
-      dataStorage.saveData('companies', companies);
+      saveDataWithSync('companies', companies);
     }
   }, [companies, dataLoaded]);
 
-  // Save selected company ID
   useEffect(() => {
     if (dataLoaded && selectedCompany) {
-      dataStorage.saveData('selectedCompanyId', selectedCompany.id);
+      saveDataWithSync('selectedCompanyId', selectedCompany.id);
     }
   }, [selectedCompany, dataLoaded]);
 
-  // Save budgets whenever they change
   useEffect(() => {
     if (dataLoaded) {
-      dataStorage.saveData('budgets', budgets);
+      saveDataWithSync('budgets', budgets);
     }
   }, [budgets, dataLoaded]);
 
-  // Save actuals whenever they change
   useEffect(() => {
     if (dataLoaded) {
-      dataStorage.saveData('actuals', actuals);
+      saveDataWithSync('actuals', actuals);
     }
   }, [actuals, dataLoaded]);
 
-  // Save fleet whenever it changes
   useEffect(() => {
     if (dataLoaded) {
-      dataStorage.saveData('fleet', fleet);
+      saveDataWithSync('fleet', fleet);
     }
   }, [fleet, dataLoaded]);
 
-  // Save jobs whenever they change
   useEffect(() => {
     if (dataLoaded) {
-      dataStorage.saveData('jobs', jobs);
+      saveDataWithSync('jobs', jobs);
     }
   }, [jobs, dataLoaded]);
 
-  // Save assets whenever they change
   useEffect(() => {
     if (dataLoaded) {
-      dataStorage.saveData('assets', assets);
+      saveDataWithSync('assets', assets);
     }
   }, [assets, dataLoaded]);
 
@@ -1284,8 +1496,8 @@ export default function MultiCompanyJobCosting() {
     }
   };
 
-  // Show loading while checking auth
-  if (authLoading || !dataLoaded || !selectedCompany) {
+  // Show loading while checking auth and loading data
+  if (authLoading || !dataLoaded) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900 flex items-center justify-center">
         <div className="text-center">
@@ -1451,6 +1663,41 @@ export default function MultiCompanyJobCosting() {
               <Badge variant="info">Multi-Company</Badge>
             </div>
             <div className="flex items-center gap-4">
+              {/* Sync Status Indicator */}
+              <div className="hidden md:flex items-center gap-2 text-xs px-3 py-1.5 rounded-full">
+                {syncStatus === 'syncing' && (
+                  <div className="flex items-center gap-2 text-blue-600 bg-blue-50 px-3 py-1.5 rounded-full">
+                    <svg className="animate-spin" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <path d="M21 12a9 9 0 1 1-6.219-8.56"/>
+                    </svg>
+                    <span>Syncing...</span>
+                  </div>
+                )}
+                {syncStatus === 'synced' && cloudEnabled && (
+                  <div className="flex items-center gap-2 text-emerald-600 bg-emerald-50 px-3 py-1.5 rounded-full">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <path d="M20 6 9 17l-5-5"/>
+                    </svg>
+                    <span>Cloud Synced</span>
+                  </div>
+                )}
+                {(syncStatus === 'idle' || !cloudEnabled) && lastSaved && (
+                  <div className="flex items-center gap-2 text-amber-600 bg-amber-50 px-3 py-1.5 rounded-full">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <path d="M20 6 9 17l-5-5"/>
+                    </svg>
+                    <span>Saved Locally</span>
+                  </div>
+                )}
+                {syncStatus === 'error' && (
+                  <div className="flex items-center gap-2 text-red-600 bg-red-50 px-3 py-1.5 rounded-full">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <circle cx="12" cy="12" r="10"/><line x1="12" x2="12" y1="8" y2="12"/><line x1="12" x2="12.01" y1="16" y2="16"/>
+                    </svg>
+                    <span>Sync Error</span>
+                  </div>
+                )}
+              </div>
               <div className="w-72">
                 <CompanySelector companies={companies} selectedCompany={selectedCompany} onSelect={setSelectedCompany} onManage={() => setShowManageCompanies(true)} />
               </div>

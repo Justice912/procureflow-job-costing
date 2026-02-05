@@ -7,13 +7,12 @@ import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, L
 
 // Firebase SDK loaded via CDN in index.html
 // Initialize Firebase - Replace with your own config from Firebase Console
-const firebaseConfig = {
-  apiKey: "YOUR_API_KEY",
-  authDomain: "YOUR_PROJECT.firebaseapp.com",
-  projectId: "YOUR_PROJECT_ID",
-  storageBucket: "YOUR_PROJECT.appspot.com",
-  messagingSenderId: "YOUR_SENDER_ID",
-  appId: "YOUR_APP_ID"
+apiKey: "AIzaSyCtIB4MK6U0Ti_TC3aj5UA8AcKZ6c_2k5U",
+authDomain: "procureflow-de7c3.firebaseapp.com",
+projectId: "procureflow-de7c3",
+storageBucket: "procureflow-de7c3.firebasestorage.app",
+messagingSenderId: "418723183377",
+appId: "1:418723183377:web:1835726a7867ef13232ab0"
 };
 
 // Firebase initialization (will be set when Firebase loads)

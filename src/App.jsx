@@ -25,6 +25,30 @@ const authStorage = {
   clearCurrentUser: () => localStorage.removeItem('procureflow_current_user'),
 };
 
+// Data Storage Helper Functions - Persists all app data
+const dataStorage = {
+  getData: (key, defaultValue) => {
+    try {
+      const saved = localStorage.getItem(`procureflow_${key}`);
+      return saved ? JSON.parse(saved) : defaultValue;
+    } catch (e) {
+      console.error(`Error loading ${key}:`, e);
+      return defaultValue;
+    }
+  },
+  saveData: (key, value) => {
+    try {
+      localStorage.setItem(`procureflow_${key}`, JSON.stringify(value));
+    } catch (e) {
+      console.error(`Error saving ${key}:`, e);
+    }
+  },
+  clearAllData: () => {
+    const keys = ['companies', 'budgets', 'actuals', 'fleet', 'jobs', 'assets', 'selectedCompanyId'];
+    keys.forEach(key => localStorage.removeItem(`procureflow_${key}`));
+  }
+};
+
 // Login/Register Component
 const AuthScreen = ({ onLogin }) => {
   const [isLogin, setIsLogin] = useState(true);
@@ -1157,16 +1181,19 @@ const getModuleIcon = (module) => {
 export default function MultiCompanyJobCosting() {
   const [currentUser, setCurrentUser] = useState(null);
   const [authLoading, setAuthLoading] = useState(true);
-  const [companies, setCompanies] = useState(initialCompanies);
-  const [selectedCompany, setSelectedCompany] = useState(initialCompanies[0]);
+  const [dataLoaded, setDataLoaded] = useState(false);
+  
+  // Load saved data or use initial defaults
+  const [companies, setCompanies] = useState(() => dataStorage.getData('companies', initialCompanies));
+  const [selectedCompany, setSelectedCompany] = useState(null);
   const [activeModule, setActiveModule] = useState('dashboard');
   const [showManageCompanies, setShowManageCompanies] = useState(false);
   const [showAddCompany, setShowAddCompany] = useState(false);
-  const [budgets, setBudgets] = useState(initialBudgets);
-  const [actuals, setActuals] = useState(initialActuals);
-  const [fleet, setFleet] = useState(initialFleet);
-  const [jobs, setJobs] = useState(initialJobs);
-  const [assets, setAssets] = useState(initialAssets);
+  const [budgets, setBudgets] = useState(() => dataStorage.getData('budgets', initialBudgets));
+  const [actuals, setActuals] = useState(() => dataStorage.getData('actuals', initialActuals));
+  const [fleet, setFleet] = useState(() => dataStorage.getData('fleet', initialFleet));
+  const [jobs, setJobs] = useState(() => dataStorage.getData('jobs', initialJobs));
+  const [assets, setAssets] = useState(() => dataStorage.getData('assets', initialAssets));
   const [showAssetModal, setShowAssetModal] = useState(false);
   const [editAsset, setEditAsset] = useState(null);
   const [newCompany, setNewCompany] = useState({
@@ -1179,14 +1206,75 @@ export default function MultiCompanyJobCosting() {
     status: 'Active'
   });
 
-  // Check for existing session on mount
+  // Check for existing session and load saved data on mount
   useEffect(() => {
     const user = authStorage.getCurrentUser();
     if (user) {
       setCurrentUser(user);
     }
+    
+    // Load saved selected company
+    const savedCompanyId = dataStorage.getData('selectedCompanyId', null);
+    const loadedCompanies = dataStorage.getData('companies', initialCompanies);
+    if (savedCompanyId) {
+      const savedCompany = loadedCompanies.find(c => c.id === savedCompanyId);
+      setSelectedCompany(savedCompany || loadedCompanies[0]);
+    } else {
+      setSelectedCompany(loadedCompanies[0]);
+    }
+    
+    setDataLoaded(true);
     setAuthLoading(false);
   }, []);
+
+  // Save companies whenever they change
+  useEffect(() => {
+    if (dataLoaded) {
+      dataStorage.saveData('companies', companies);
+    }
+  }, [companies, dataLoaded]);
+
+  // Save selected company ID
+  useEffect(() => {
+    if (dataLoaded && selectedCompany) {
+      dataStorage.saveData('selectedCompanyId', selectedCompany.id);
+    }
+  }, [selectedCompany, dataLoaded]);
+
+  // Save budgets whenever they change
+  useEffect(() => {
+    if (dataLoaded) {
+      dataStorage.saveData('budgets', budgets);
+    }
+  }, [budgets, dataLoaded]);
+
+  // Save actuals whenever they change
+  useEffect(() => {
+    if (dataLoaded) {
+      dataStorage.saveData('actuals', actuals);
+    }
+  }, [actuals, dataLoaded]);
+
+  // Save fleet whenever it changes
+  useEffect(() => {
+    if (dataLoaded) {
+      dataStorage.saveData('fleet', fleet);
+    }
+  }, [fleet, dataLoaded]);
+
+  // Save jobs whenever they change
+  useEffect(() => {
+    if (dataLoaded) {
+      dataStorage.saveData('jobs', jobs);
+    }
+  }, [jobs, dataLoaded]);
+
+  // Save assets whenever they change
+  useEffect(() => {
+    if (dataLoaded) {
+      dataStorage.saveData('assets', assets);
+    }
+  }, [assets, dataLoaded]);
 
   // Handle logout
   const handleLogout = () => {
@@ -1197,7 +1285,7 @@ export default function MultiCompanyJobCosting() {
   };
 
   // Show loading while checking auth
-  if (authLoading) {
+  if (authLoading || !dataLoaded || !selectedCompany) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900 flex items-center justify-center">
         <div className="text-center">

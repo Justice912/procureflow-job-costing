@@ -433,9 +433,9 @@ const initialCompanies = [
 ];
 
 const industryConfig = {
-  haulage: { label: 'Truck Haulage', color: 'from-blue-500 to-cyan-600', icon: 'Truck', modules: ['dashboard', 'fleet', 'jobs', 'actuals', 'budgets', 'depreciation', 'reports'] },
-  construction: { label: 'Construction', color: 'from-amber-500 to-orange-600', icon: 'Building', modules: ['dashboard', 'projects', 'actuals', 'budgets', 'depreciation', 'reports'] },
-  education: { label: 'Education', color: 'from-purple-500 to-indigo-600', icon: 'GraduationCap', modules: ['dashboard', 'programs', 'actuals', 'budgets', 'depreciation', 'reports'] },
+  haulage: { label: 'Truck Haulage', color: 'from-blue-500 to-cyan-600', icon: 'Truck', modules: ['dashboard', 'fleet', 'jobs', 'actuals', 'budgets', 'budgeted-revenue', 'depreciation', 'reports'] },
+  construction: { label: 'Construction', color: 'from-amber-500 to-orange-600', icon: 'Building', modules: ['dashboard', 'projects', 'actuals', 'budgets', 'budgeted-revenue', 'depreciation', 'reports'] },
+  education: { label: 'Education', color: 'from-purple-500 to-indigo-600', icon: 'GraduationCap', modules: ['dashboard', 'programs', 'actuals', 'budgets', 'budgeted-revenue', 'depreciation', 'reports'] },
 };
 
 // Industry-Specific Expense Categories
@@ -626,6 +626,87 @@ const initialActuals = {
       'DIP-IT': { revenue: 1280000, academicSalaries: 420000, materials: 78000, practicals: 68000, depreciation: 48000 },
       'CERT-ACC': { revenue: 820000, academicSalaries: 280000, materials: 38000, practicals: 35000, depreciation: 28000 },
     }
+  }
+};
+
+// Mock Data - Budgeted Revenue (per trip, per month, per truck)
+const initialBudgetedRevenue = {
+  '1': { // Transhaul - Haulage
+    monthly: {
+      '2025-01': { totalRevenue: 380000, tripsPlanned: 45, avgRevenuePerTrip: 8444, target: 400000 },
+      '2025-02': { totalRevenue: 400000, tripsPlanned: 48, avgRevenuePerTrip: 8333, target: 420000 },
+      '2025-03': { totalRevenue: 420000, tripsPlanned: 52, avgRevenuePerTrip: 8077, target: 450000 },
+    },
+    byTruck: {
+      'TA-001': {
+        truckName: 'UD Quester GWE 420 (TA-001)',
+        driver: 'John Nkosi',
+        monthly: {
+          '2025-01': { revenue: 152000, trips: 18, avgPerTrip: 8444, target: 160000 },
+          '2025-02': { revenue: 160000, trips: 19, avgPerTrip: 8421, target: 168000 },
+          '2025-03': { revenue: 168000, trips: 21, avgPerTrip: 8000, target: 180000 },
+        },
+        annual: { revenue: 1800000, trips: 210, avgPerTrip: 8571, target: 1920000 },
+      },
+      'TA-002': {
+        truckName: 'UD Quester GWE 420 (TA-002)',
+        driver: 'Peter Dlamini',
+        monthly: {
+          '2025-01': { revenue: 125000, trips: 15, avgPerTrip: 8333, target: 132000 },
+          '2025-02': { revenue: 132000, trips: 16, avgPerTrip: 8250, target: 140000 },
+          '2025-03': { revenue: 140000, trips: 17, avgPerTrip: 8235, target: 150000 },
+        },
+        annual: { revenue: 1500000, trips: 180, avgPerTrip: 8333, target: 1600000 },
+      },
+      'TA-003': {
+        truckName: 'Mercedes-Benz Actros 2645 (TA-003)',
+        driver: 'Sipho Mbeki',
+        monthly: {
+          '2025-01': { revenue: 103000, trips: 12, avgPerTrip: 8583, target: 108000 },
+          '2025-02': { revenue: 108000, trips: 13, avgPerTrip: 8308, target: 112000 },
+          '2025-03': { revenue: 112000, trips: 14, avgPerTrip: 8000, target: 120000 },
+        },
+        annual: { revenue: 1200000, trips: 150, avgPerTrip: 8000, target: 1300000 },
+      },
+    },
+    byTrip: [
+      { tripId: 'BT-001', date: '2025-01-15', truck: 'TA-001', route: 'DBN-JHB', customer: 'ABC Mining Ltd', loadType: 'Coal', budgetedRevenue: 12500, actualRevenue: 12100, distance: 580, ratePerKm: 21.55 },
+      { tripId: 'BT-002', date: '2025-01-15', truck: 'TA-002', route: 'DBN-PE', customer: 'Fresh Produce Co', loadType: 'Fresh Produce', budgetedRevenue: 15200, actualRevenue: 14800, distance: 680, ratePerKm: 22.35 },
+      { tripId: 'BT-003', date: '2025-01-16', truck: 'TA-001', route: 'JHB-DBN', customer: 'XYZ Construction', loadType: 'Building Materials', budgetedRevenue: 11800, actualRevenue: 12200, distance: 580, ratePerKm: 20.34 },
+      { tripId: 'BT-004', date: '2025-01-17', truck: 'TA-003', route: 'DBN-BFN', customer: 'Steel Works SA', loadType: 'Steel Coils', budgetedRevenue: 18500, actualRevenue: 17900, distance: 620, ratePerKm: 29.84 },
+      { tripId: 'BT-005', date: '2025-01-18', truck: 'TA-001', route: 'DBN-JHB', customer: 'ABC Mining Ltd', loadType: 'Equipment', budgetedRevenue: 14200, actualRevenue: 14500, distance: 580, ratePerKm: 24.48 },
+      { tripId: 'BT-006', date: '2025-01-20', truck: 'TA-002', route: 'DBN-BFN', customer: 'Agri Foods', loadType: 'Grain', budgetedRevenue: 9800, actualRevenue: 9500, distance: 520, ratePerKm: 18.85 },
+      { tripId: 'BT-007', date: '2025-01-22', truck: 'TA-003', route: 'JHB-CT', customer: 'Retail Giants', loadType: 'General Cargo', budgetedRevenue: 28000, actualRevenue: 27500, distance: 1400, ratePerKm: 20.00 },
+      { tripId: 'BT-008', date: '2025-01-25', truck: 'TA-001', route: 'DBN-PE', customer: 'Fresh Produce Co', loadType: 'Fresh Produce', budgetedRevenue: 15200, actualRevenue: 15800, distance: 680, ratePerKm: 22.35 },
+      { tripId: 'BT-009', date: '2025-02-02', truck: 'TA-002', route: 'DBN-JHB', customer: 'ABC Mining Ltd', loadType: 'Coal', budgetedRevenue: 12500, actualRevenue: 13200, distance: 580, ratePerKm: 21.55 },
+      { tripId: 'BT-010', date: '2025-02-05', truck: 'TA-003', route: 'DBN-PE', customer: 'Pharma Distributors', loadType: 'Pharmaceuticals', budgetedRevenue: 22000, actualRevenue: 21500, distance: 680, ratePerKm: 32.35 },
+      { tripId: 'BT-011', date: '2025-02-08', truck: 'TA-001', route: 'JHB-DBN', customer: 'Steel Works SA', loadType: 'Steel Coils', budgetedRevenue: 18500, actualRevenue: 19200, distance: 580, ratePerKm: 31.90 },
+      { tripId: 'BT-012', date: '2025-02-12', truck: 'TA-002', route: 'DBN-BFN', customer: 'Agri Foods', loadType: 'Grain', budgetedRevenue: 9800, actualRevenue: 10100, distance: 520, ratePerKm: 18.85 },
+      { tripId: 'BT-013', date: '2025-03-01', truck: 'TA-001', route: 'DBN-JHB', customer: 'ABC Mining Ltd', loadType: 'Coal', budgetedRevenue: 12500, actualRevenue: 12800, distance: 580, ratePerKm: 21.55 },
+      { tripId: 'BT-014', date: '2025-03-05', truck: 'TA-003', route: 'JHB-CT', customer: 'Retail Giants', loadType: 'General Cargo', budgetedRevenue: 28000, actualRevenue: 29100, distance: 1400, ratePerKm: 20.00 },
+      { tripId: 'BT-015', date: '2025-03-10', truck: 'TA-002', route: 'DBN-PE', customer: 'Fresh Produce Co', loadType: 'Fresh Produce', budgetedRevenue: 15200, actualRevenue: 14600, distance: 680, ratePerKm: 22.35 },
+    ],
+    annual: { totalRevenue: 4500000, tripsPlanned: 540, avgRevenuePerTrip: 8333, target: 4800000 },
+  },
+  '2': { // Master Builders - Construction
+    monthly: {
+      '2025-01': { totalRevenue: 3800000, projectsActive: 3, avgRevenuePerProject: 1266667, target: 4000000 },
+      '2025-02': { totalRevenue: 4200000, projectsActive: 3, avgRevenuePerProject: 1400000, target: 4500000 },
+      '2025-03': { totalRevenue: 4500000, projectsActive: 3, avgRevenuePerProject: 1500000, target: 4800000 },
+    },
+    byTruck: {},
+    byTrip: [],
+    annual: { totalRevenue: 45000000, projectsActive: 3, avgRevenuePerProject: 15000000, target: 48000000 },
+  },
+  '3': { // Excel Academy - Education
+    monthly: {
+      '2025-01': { totalRevenue: 1050000, programsActive: 3, avgRevenuePerProgram: 350000, target: 1100000 },
+      '2025-02': { totalRevenue: 1100000, programsActive: 3, avgRevenuePerProgram: 366667, target: 1150000 },
+      '2025-03': { totalRevenue: 1150000, programsActive: 3, avgRevenuePerProgram: 383333, target: 1200000 },
+    },
+    byTruck: {},
+    byTrip: [],
+    annual: { totalRevenue: 12500000, programsActive: 3, avgRevenuePerProgram: 4166667, target: 13200000 },
   }
 };
 
@@ -1328,7 +1409,8 @@ const ExportButtons = ({ onPDF, onExcel, onPrintWithCharts }) => (
 const getModuleIcon = (module) => {
   const icons = {
     dashboard: <Icons.Home />, fleet: <Icons.Truck />, jobs: <Icons.Clipboard />,
-    actuals: <Icons.Wallet />, budgets: <Icons.Target />, reports: <Icons.BarChart />,
+    actuals: <Icons.Wallet />, budgets: <Icons.Target />, 'budgeted-revenue': <Icons.DollarSign />,
+    reports: <Icons.BarChart />,
     projects: <Icons.Building />, programs: <Icons.GraduationCap />,
     depreciation: <Icons.TrendingDownRight />,
   };
@@ -1356,6 +1438,7 @@ export default function MultiCompanyJobCosting() {
   const [actuals, setActuals] = useState(initialActuals);
   const [fleet, setFleet] = useState(initialFleet);
   const [jobs, setJobs] = useState(initialJobs);
+  const [budgetedRevenue, setBudgetedRevenue] = useState(initialBudgetedRevenue);
   const [assets, setAssets] = useState(initialAssets);
   const [showAssetModal, setShowAssetModal] = useState(false);
   const [editAsset, setEditAsset] = useState(null);
@@ -1392,6 +1475,7 @@ export default function MultiCompanyJobCosting() {
             if (cloudData.actuals) setActuals(cloudData.actuals);
             if (cloudData.fleet) setFleet(cloudData.fleet);
             if (cloudData.jobs) setJobs(cloudData.jobs);
+            if (cloudData.budgetedRevenue) setBudgetedRevenue(cloudData.budgetedRevenue);
             if (cloudData.assets) setAssets(cloudData.assets);
             
             const comps = cloudData.companies || initialCompanies;
@@ -1415,6 +1499,7 @@ export default function MultiCompanyJobCosting() {
       if (savedData.actuals) setActuals(savedData.actuals);
       if (savedData.fleet) setFleet(savedData.fleet);
       if (savedData.jobs) setJobs(savedData.jobs);
+      if (savedData.budgetedRevenue) setBudgetedRevenue(savedData.budgetedRevenue);
       if (savedData.assets) setAssets(savedData.assets);
       
       const comps = savedData.companies || initialCompanies;
@@ -1483,6 +1568,12 @@ export default function MultiCompanyJobCosting() {
 
   useEffect(() => {
     if (dataLoaded) {
+      saveDataWithSync('budgetedRevenue', budgetedRevenue);
+    }
+  }, [budgetedRevenue, dataLoaded]);
+
+  useEffect(() => {
+    if (dataLoaded) {
       saveDataWithSync('assets', assets);
     }
   }, [assets, dataLoaded]);
@@ -1536,6 +1627,7 @@ export default function MultiCompanyJobCosting() {
     setActuals(prev => ({ ...prev, [companyId]: { monthly: {}, byTruck: {}, byRoute: {} } }));
     setFleet(prev => ({ ...prev, [companyId]: { trucks: [], trailers: [] } }));
     setJobs(prev => ({ ...prev, [companyId]: { jobs: [] } }));
+    setBudgetedRevenue(prev => ({ ...prev, [companyId]: { monthly: {}, byTruck: {}, byTrip: [], annual: {} } }));
     setAssets(prev => ({ ...prev, [companyId]: [] }));
     
     // Reset form and close modal
@@ -1587,6 +1679,10 @@ export default function MultiCompanyJobCosting() {
       const { [companyId]: _, ...rest } = prev;
       return rest;
     });
+    setBudgetedRevenue(prev => {
+      const { [companyId]: _, ...rest } = prev;
+      return rest;
+    });
     setAssets(prev => {
       const { [companyId]: _, ...rest } = prev;
       return rest;
@@ -1625,6 +1721,16 @@ export default function MultiCompanyJobCosting() {
         return <ActualsModule company={selectedCompany} config={config} actuals={actuals} setActuals={setActuals} categories={categories} />;
       case 'budgets':
         return <BudgetsModule company={selectedCompany} config={config} budgets={budgets} setBudgets={setBudgets} categories={categories} />;
+      case 'budgeted-revenue':
+        return <BudgetedRevenueModule
+          company={selectedCompany}
+          config={config}
+          budgetedRevenue={budgetedRevenue}
+          setBudgetedRevenue={setBudgetedRevenue}
+          budgets={budgets}
+          actuals={actuals}
+          fleet={fleet[selectedCompany.id] || { trucks: [], trailers: [] }}
+        />;
       case 'depreciation':
         return <DepreciationModule 
           company={selectedCompany} 
@@ -1738,7 +1844,7 @@ export default function MultiCompanyJobCosting() {
                       activeModule === module ? 'bg-blue-50 text-blue-700 font-medium' : 'text-slate-600 hover:bg-slate-50'
                     }`}>
                     {getModuleIcon(module)}
-                    <span className="capitalize">{module}</span>
+                    <span className="capitalize">{module === 'budgeted-revenue' ? 'Budgeted Revenue' : module}</span>
                   </button>
                 ))}
               </div>
@@ -3018,6 +3124,639 @@ const ActualEntryForm = ({ categories, editCategory, currentValues, onSave, onCa
           {editCategory ? 'Update' : 'Add'} Entry
         </button>
       </div>
+    </div>
+  );
+};
+
+// Budgeted Revenue Module
+const BudgetedRevenueModule = ({ company, config, budgetedRevenue, setBudgetedRevenue, budgets, actuals, fleet }) => {
+  const [activeView, setActiveView] = useState('monthly');
+  const [selectedMonth, setSelectedMonth] = useState('2025-01');
+  const [showAddTripModal, setShowAddTripModal] = useState(false);
+  const [filterTruck, setFilterTruck] = useState('all');
+
+  const companyData = budgetedRevenue[company.id] || { monthly: {}, byTruck: {}, byTrip: [], annual: {} };
+  const monthlyData = companyData.monthly?.[selectedMonth] || {};
+  const annualData = companyData.annual || {};
+  const truckData = companyData.byTruck || {};
+  const tripData = companyData.byTrip || [];
+
+  // Actual revenue data for comparison
+  const actualMonthlyRevenue = actuals[company.id]?.monthly?.[selectedMonth]?.revenue || 0;
+  const budgetMonthlyRevenue = budgets[company.id]?.monthly?.[selectedMonth]?.revenue || 0;
+
+  // Calculate annual actuals from available months
+  const allMonths = Object.keys(actuals[company.id]?.monthly || {});
+  const totalActualRevenue = allMonths.reduce((sum, m) => sum + (actuals[company.id]?.monthly?.[m]?.revenue || 0), 0);
+
+  const isHaulage = company.industry === 'haulage';
+
+  const views = [
+    { id: 'monthly', name: 'Per Month' },
+    { id: 'truck', name: isHaulage ? 'Per Truck' : company.industry === 'construction' ? 'Per Project' : 'Per Program' },
+    { id: 'trip', name: isHaulage ? 'Per Trip' : 'Details' },
+  ];
+
+  // Filter trips by month and truck
+  const filteredTrips = tripData.filter(trip => {
+    const tripMonth = trip.date?.substring(0, 7);
+    const matchMonth = selectedMonth === 'annual' || tripMonth === selectedMonth;
+    const matchTruck = filterTruck === 'all' || trip.truck === filterTruck;
+    return matchMonth && matchTruck;
+  });
+
+  // Monthly summary data for chart
+  const monthlyChartData = Object.keys(companyData.monthly || {}).map(month => {
+    const mData = companyData.monthly[month];
+    const actualRev = actuals[company.id]?.monthly?.[month]?.revenue || 0;
+    return {
+      month: new Date(month + '-01').toLocaleDateString('en-ZA', { month: 'short' }),
+      budgeted: mData?.totalRevenue || 0,
+      target: mData?.target || 0,
+      actual: actualRev,
+    };
+  });
+
+  // Calculate variance
+  const currentBudgetedRev = monthlyData.totalRevenue || 0;
+  const variance = actualMonthlyRevenue - currentBudgetedRev;
+  const variancePercent = currentBudgetedRev > 0 ? (variance / currentBudgetedRev * 100) : 0;
+
+  // Trip form state
+  const [newTrip, setNewTrip] = useState({
+    date: '', truck: '', route: '', customer: '', loadType: '', budgetedRevenue: 0, distance: 0, ratePerKm: 0
+  });
+
+  const handleAddTrip = () => {
+    if (!newTrip.date || !newTrip.truck || !newTrip.budgetedRevenue) {
+      alert('Please fill in date, truck, and budgeted revenue');
+      return;
+    }
+    const tripId = `BT-${String(tripData.length + 1).padStart(3, '0')}`;
+    const updatedTrips = [...tripData, { ...newTrip, tripId, actualRevenue: 0, budgetedRevenue: parseFloat(newTrip.budgetedRevenue), distance: parseFloat(newTrip.distance) || 0, ratePerKm: parseFloat(newTrip.ratePerKm) || 0 }];
+    const updatedData = {
+      ...budgetedRevenue,
+      [company.id]: {
+        ...companyData,
+        byTrip: updatedTrips
+      }
+    };
+    setBudgetedRevenue(updatedData);
+    setShowAddTripModal(false);
+    setNewTrip({ date: '', truck: '', route: '', customer: '', loadType: '', budgetedRevenue: 0, distance: 0, ratePerKm: 0 });
+  };
+
+  const handleDeleteTrip = (tripId) => {
+    if (confirm('Are you sure you want to delete this budgeted trip?')) {
+      const updatedTrips = tripData.filter(t => t.tripId !== tripId);
+      setBudgetedRevenue({
+        ...budgetedRevenue,
+        [company.id]: { ...companyData, byTrip: updatedTrips }
+      });
+    }
+  };
+
+  // Get available trucks for filtering
+  const availableTrucks = fleet?.trucks || [];
+
+  // Export helper
+  const exportData = () => {
+    if (activeView === 'monthly') {
+      return {
+        title: 'Budgeted Revenue - Monthly Summary',
+        headers: [
+          { key: 'month', label: 'Month', align: 'left' },
+          { key: 'budgeted', label: 'Budgeted Revenue (R)', align: 'right' },
+          { key: 'target', label: 'Target (R)', align: 'right' },
+          { key: 'actual', label: 'Actual Revenue (R)', align: 'right' },
+          { key: 'variance', label: 'Variance (R)', align: 'right' },
+        ],
+        data: Object.keys(companyData.monthly || {}).map(month => {
+          const m = companyData.monthly[month];
+          const act = actuals[company.id]?.monthly?.[month]?.revenue || 0;
+          return {
+            month: new Date(month + '-01').toLocaleDateString('en-ZA', { month: 'long', year: 'numeric' }),
+            budgeted: `R ${(m?.totalRevenue || 0).toLocaleString()}`,
+            target: `R ${(m?.target || 0).toLocaleString()}`,
+            actual: `R ${act.toLocaleString()}`,
+            variance: `R ${(act - (m?.totalRevenue || 0)).toLocaleString()}`,
+          };
+        })
+      };
+    }
+    if (activeView === 'truck') {
+      return {
+        title: `Budgeted Revenue - Per ${isHaulage ? 'Truck' : 'Unit'}`,
+        headers: [
+          { key: 'unit', label: isHaulage ? 'Truck' : 'Unit', align: 'left' },
+          { key: 'revenue', label: 'Budgeted Revenue (R)', align: 'right' },
+          { key: 'target', label: 'Target (R)', align: 'right' },
+          { key: 'items', label: isHaulage ? 'Trips' : 'Items', align: 'right' },
+          { key: 'avg', label: 'Avg/Item (R)', align: 'right' },
+        ],
+        data: Object.entries(truckData).map(([id, data]) => {
+          const mData = data.monthly?.[selectedMonth] || data;
+          return {
+            unit: data.truckName || id,
+            revenue: `R ${(mData?.revenue || data?.annual?.revenue || 0).toLocaleString()}`,
+            target: `R ${(mData?.target || data?.annual?.target || 0).toLocaleString()}`,
+            items: mData?.trips || data?.annual?.trips || 0,
+            avg: `R ${(mData?.avgPerTrip || data?.annual?.avgPerTrip || 0).toLocaleString()}`,
+          };
+        })
+      };
+    }
+    return {
+      title: 'Budgeted Revenue - Per Trip',
+      headers: [
+        { key: 'tripId', label: 'Trip ID', align: 'left' },
+        { key: 'date', label: 'Date', align: 'left' },
+        { key: 'truck', label: 'Truck', align: 'left' },
+        { key: 'route', label: 'Route', align: 'left' },
+        { key: 'budgeted', label: 'Budgeted (R)', align: 'right' },
+        { key: 'actual', label: 'Actual (R)', align: 'right' },
+      ],
+      data: filteredTrips.map(t => ({
+        tripId: t.tripId,
+        date: t.date,
+        truck: t.truck,
+        route: t.route,
+        budgeted: `R ${(t.budgetedRevenue || 0).toLocaleString()}`,
+        actual: `R ${(t.actualRevenue || 0).toLocaleString()}`,
+      }))
+    };
+  };
+
+  return (
+    <div className="space-y-6">
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-2xl font-bold text-slate-900">Budgeted Revenue</h2>
+          <p className="text-slate-500">Plan and track revenue targets for {config.label}</p>
+        </div>
+        <div className="flex gap-3">
+          <Select value={selectedMonth} onChange={e => setSelectedMonth(e.target.value)}>
+            <option value="annual">Annual 2025</option>
+            <option value="2025-01">January 2025</option>
+            <option value="2025-02">February 2025</option>
+            <option value="2025-03">March 2025</option>
+          </Select>
+          <ExportButtons
+            onPDF={() => {
+              const data = exportData();
+              exportToPDF(data.title, data.headers, data.data, company, selectedMonth === 'annual' ? 'Annual 2025' : new Date(selectedMonth + '-01').toLocaleDateString('en-ZA', { month: 'long', year: 'numeric' }));
+            }}
+            onExcel={() => {
+              const data = exportData();
+              exportToExcel(data.title.replace(/\s+/g, '_'), data.headers, data.data, company, selectedMonth === 'annual' ? 'Annual 2025' : new Date(selectedMonth + '-01').toLocaleDateString('en-ZA', { month: 'long', year: 'numeric' }));
+            }}
+          />
+          {isHaulage && activeView === 'trip' && (
+            <button onClick={() => setShowAddTripModal(true)} className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700">
+              <Icons.Plus />Add Trip Budget
+            </button>
+          )}
+        </div>
+      </div>
+
+      {/* Summary KPI Cards */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <KPICard
+          title={selectedMonth === 'annual' ? 'Annual Budgeted Revenue' : 'Monthly Budgeted Revenue'}
+          value={`R ${(selectedMonth === 'annual' ? (annualData.totalRevenue || 0) : (monthlyData.totalRevenue || 0)).toLocaleString()}`}
+          icon={<Icons.Target />}
+          color="blue"
+        />
+        <KPICard
+          title="Actual Revenue"
+          value={`R ${(selectedMonth === 'annual' ? totalActualRevenue : actualMonthlyRevenue).toLocaleString()}`}
+          icon={<Icons.DollarSign />}
+          color="emerald"
+        />
+        <KPICard
+          title="Variance"
+          value={`R ${(selectedMonth === 'annual' ? (totalActualRevenue - (annualData.totalRevenue || 0)) : variance).toLocaleString()}`}
+          icon={variance >= 0 ? <Icons.TrendingUp /> : <Icons.TrendingDown />}
+          color={variance >= 0 ? 'emerald' : 'red'}
+          trend={selectedMonth !== 'annual' ? (variancePercent >= 0 ? 'up' : 'down') : undefined}
+          trendLabel={selectedMonth !== 'annual' ? `${Math.abs(variancePercent).toFixed(1)}%` : undefined}
+        />
+        <KPICard
+          title={selectedMonth === 'annual' ? 'Annual Target' : 'Monthly Target'}
+          value={`R ${(selectedMonth === 'annual' ? (annualData.target || 0) : (monthlyData.target || 0)).toLocaleString()}`}
+          icon={<Icons.ArrowUpRight />}
+          color="purple"
+        />
+      </div>
+
+      {/* Revenue Trend Chart */}
+      {monthlyChartData.length > 0 && (
+        <div className="bg-white rounded-xl border shadow-sm p-6">
+          <h3 className="font-semibold mb-4">Revenue Trend: Budgeted vs Actual</h3>
+          <ResponsiveContainer width="100%" height={280}>
+            <ComposedChart data={monthlyChartData}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
+              <XAxis dataKey="month" tick={{ fontSize: 12 }} />
+              <YAxis tick={{ fontSize: 12 }} tickFormatter={(v) => `R${(v / 1000).toFixed(0)}k`} />
+              <Tooltip formatter={(value) => `R ${value.toLocaleString()}`} />
+              <Legend />
+              <Bar dataKey="budgeted" name="Budgeted" fill="#3b82f6" radius={[4, 4, 0, 0]} />
+              <Bar dataKey="actual" name="Actual" fill="#10b981" radius={[4, 4, 0, 0]} />
+              <Line type="monotone" dataKey="target" name="Target" stroke="#a855f7" strokeWidth={2} strokeDasharray="5 5" dot={{ fill: '#a855f7' }} />
+            </ComposedChart>
+          </ResponsiveContainer>
+        </div>
+      )}
+
+      {/* View Tabs */}
+      <div className="flex gap-1 overflow-x-auto pb-2 bg-slate-100 p-1 rounded-lg">
+        {views.map(view => (
+          <button key={view.id} onClick={() => setActiveView(view.id)}
+            className={`px-4 py-2 rounded-md text-sm font-medium whitespace-nowrap ${activeView === view.id ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-600'}`}>
+            {view.name}
+          </button>
+        ))}
+      </div>
+
+      {/* ===== MONTHLY VIEW ===== */}
+      {activeView === 'monthly' && (
+        <div className="bg-white rounded-xl border shadow-sm overflow-hidden">
+          <div className="p-4 border-b bg-slate-50">
+            <h3 className="font-semibold">Monthly Revenue Budget Summary</h3>
+          </div>
+          <table className="w-full">
+            <thead className="bg-slate-50 border-b">
+              <tr>
+                <th className="px-4 py-3 text-left text-xs font-medium text-slate-600">Month</th>
+                <th className="px-4 py-3 text-right text-xs font-medium text-slate-600">Budgeted Revenue (R)</th>
+                <th className="px-4 py-3 text-right text-xs font-medium text-slate-600">Target (R)</th>
+                <th className="px-4 py-3 text-right text-xs font-medium text-slate-600">Actual Revenue (R)</th>
+                <th className="px-4 py-3 text-right text-xs font-medium text-slate-600">Variance (R)</th>
+                <th className="px-4 py-3 text-right text-xs font-medium text-slate-600">Variance %</th>
+                <th className="px-4 py-3 text-center text-xs font-medium text-slate-600">Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              {Object.keys(companyData.monthly || {}).map(month => {
+                const mData = companyData.monthly[month];
+                const actualRev = actuals[company.id]?.monthly?.[month]?.revenue || 0;
+                const budgetedRev = mData?.totalRevenue || 0;
+                const target = mData?.target || 0;
+                const mVariance = actualRev - budgetedRev;
+                const mVariancePct = budgetedRev > 0 ? (mVariance / budgetedRev * 100) : 0;
+                const targetAchieved = actualRev >= target;
+                return (
+                  <tr key={month} className="border-b hover:bg-slate-50">
+                    <td className="px-4 py-3 text-sm font-medium">{new Date(month + '-01').toLocaleDateString('en-ZA', { month: 'long', year: 'numeric' })}</td>
+                    <td className="px-4 py-3 text-sm text-right font-semibold">R {budgetedRev.toLocaleString()}</td>
+                    <td className="px-4 py-3 text-sm text-right text-purple-600 font-medium">R {target.toLocaleString()}</td>
+                    <td className="px-4 py-3 text-sm text-right font-semibold">R {actualRev.toLocaleString()}</td>
+                    <td className={`px-4 py-3 text-sm text-right font-semibold ${mVariance >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>
+                      {mVariance >= 0 ? '+' : ''}R {mVariance.toLocaleString()}
+                    </td>
+                    <td className={`px-4 py-3 text-sm text-right ${mVariancePct >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>
+                      {mVariancePct >= 0 ? '+' : ''}{mVariancePct.toFixed(1)}%
+                    </td>
+                    <td className="px-4 py-3 text-center">
+                      <Badge variant={targetAchieved ? 'success' : mVariance >= 0 ? 'info' : 'danger'}>
+                        {targetAchieved ? 'Target Met' : mVariance >= 0 ? 'On Track' : 'Below Budget'}
+                      </Badge>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+            <tfoot className="bg-blue-50">
+              <tr>
+                <td className="px-4 py-3 text-sm font-bold">ANNUAL TOTAL</td>
+                <td className="px-4 py-3 text-sm text-right font-bold">R {(annualData.totalRevenue || 0).toLocaleString()}</td>
+                <td className="px-4 py-3 text-sm text-right font-bold text-purple-700">R {(annualData.target || 0).toLocaleString()}</td>
+                <td className="px-4 py-3 text-sm text-right font-bold">R {totalActualRevenue.toLocaleString()}</td>
+                <td className={`px-4 py-3 text-sm text-right font-bold ${(totalActualRevenue - (annualData.totalRevenue || 0)) >= 0 ? 'text-emerald-700' : 'text-red-700'}`}>
+                  {(totalActualRevenue - (annualData.totalRevenue || 0)) >= 0 ? '+' : ''}R {(totalActualRevenue - (annualData.totalRevenue || 0)).toLocaleString()}
+                </td>
+                <td className={`px-4 py-3 text-sm text-right font-bold ${(annualData.totalRevenue || 0) > 0 && ((totalActualRevenue - (annualData.totalRevenue || 0)) / (annualData.totalRevenue || 1) * 100) >= 0 ? 'text-emerald-700' : 'text-red-700'}`}>
+                  {(annualData.totalRevenue || 0) > 0 ? (((totalActualRevenue - (annualData.totalRevenue || 0)) / (annualData.totalRevenue || 1) * 100) >= 0 ? '+' : '') + ((totalActualRevenue - (annualData.totalRevenue || 0)) / (annualData.totalRevenue || 1) * 100).toFixed(1) + '%' : 'N/A'}
+                </td>
+                <td></td>
+              </tr>
+            </tfoot>
+          </table>
+        </div>
+      )}
+
+      {/* ===== PER TRUCK VIEW ===== */}
+      {activeView === 'truck' && (
+        <div className="space-y-4">
+          {Object.keys(truckData).length === 0 ? (
+            <div className="bg-white rounded-xl border shadow-sm p-8 text-center">
+              <div className="p-4 bg-slate-100 rounded-full w-16 h-16 mx-auto mb-4 flex items-center justify-center">
+                <Icons.Truck />
+              </div>
+              <h3 className="text-lg font-semibold mb-2">No {isHaulage ? 'Truck' : 'Unit'} Data</h3>
+              <p className="text-slate-500">{isHaulage ? 'Truck-level budgeted revenue data is only available for haulage companies.' : 'No unit-level data available.'}</p>
+            </div>
+          ) : (
+            <>
+              {/* Truck Summary Table */}
+              <div className="bg-white rounded-xl border shadow-sm overflow-hidden">
+                <div className="p-4 border-b bg-slate-50">
+                  <h3 className="font-semibold">{isHaulage ? 'Per Truck' : 'Per Unit'} Revenue Budget - {selectedMonth === 'annual' ? 'Annual' : new Date(selectedMonth + '-01').toLocaleDateString('en-ZA', { month: 'long', year: 'numeric' })}</h3>
+                </div>
+                <table className="w-full">
+                  <thead className="bg-slate-50 border-b">
+                    <tr>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-slate-600">{isHaulage ? 'Truck' : 'Unit'}</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-slate-600">Driver</th>
+                      <th className="px-4 py-3 text-right text-xs font-medium text-slate-600">Budgeted Revenue (R)</th>
+                      <th className="px-4 py-3 text-right text-xs font-medium text-slate-600">Target (R)</th>
+                      <th className="px-4 py-3 text-right text-xs font-medium text-slate-600">Planned Trips</th>
+                      <th className="px-4 py-3 text-right text-xs font-medium text-slate-600">Avg/Trip (R)</th>
+                      <th className="px-4 py-3 text-right text-xs font-medium text-slate-600">% of Total</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {Object.entries(truckData).map(([truckId, data]) => {
+                      const isAnnual = selectedMonth === 'annual';
+                      const viewData = isAnnual ? data.annual : (data.monthly?.[selectedMonth] || {});
+                      const totalBudgetedRevAll = isAnnual
+                        ? Object.values(truckData).reduce((s, t) => s + (t.annual?.revenue || 0), 0)
+                        : Object.values(truckData).reduce((s, t) => s + (t.monthly?.[selectedMonth]?.revenue || 0), 0);
+                      const pctOfTotal = totalBudgetedRevAll > 0 ? ((viewData?.revenue || 0) / totalBudgetedRevAll * 100) : 0;
+                      return (
+                        <tr key={truckId} className="border-b hover:bg-slate-50">
+                          <td className="px-4 py-3 text-sm font-medium">{data.truckName || truckId}</td>
+                          <td className="px-4 py-3 text-sm text-slate-600">{data.driver || '-'}</td>
+                          <td className="px-4 py-3 text-sm text-right font-semibold">R {(viewData?.revenue || 0).toLocaleString()}</td>
+                          <td className="px-4 py-3 text-sm text-right text-purple-600 font-medium">R {(viewData?.target || 0).toLocaleString()}</td>
+                          <td className="px-4 py-3 text-sm text-right">{viewData?.trips || 0}</td>
+                          <td className="px-4 py-3 text-sm text-right text-slate-600">R {(viewData?.avgPerTrip || 0).toLocaleString()}</td>
+                          <td className="px-4 py-3 text-sm text-right">
+                            <div className="flex items-center justify-end gap-2">
+                              <div className="w-16 bg-slate-200 rounded-full h-2">
+                                <div className="bg-blue-500 h-2 rounded-full" style={{ width: `${Math.min(pctOfTotal, 100)}%` }}></div>
+                              </div>
+                              <span className="text-slate-500">{pctOfTotal.toFixed(1)}%</span>
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                  <tfoot className="bg-blue-50">
+                    <tr>
+                      <td colSpan={2} className="px-4 py-3 text-sm font-bold">TOTAL</td>
+                      <td className="px-4 py-3 text-sm text-right font-bold">
+                        R {(selectedMonth === 'annual'
+                          ? Object.values(truckData).reduce((s, t) => s + (t.annual?.revenue || 0), 0)
+                          : Object.values(truckData).reduce((s, t) => s + (t.monthly?.[selectedMonth]?.revenue || 0), 0)
+                        ).toLocaleString()}
+                      </td>
+                      <td className="px-4 py-3 text-sm text-right font-bold text-purple-700">
+                        R {(selectedMonth === 'annual'
+                          ? Object.values(truckData).reduce((s, t) => s + (t.annual?.target || 0), 0)
+                          : Object.values(truckData).reduce((s, t) => s + (t.monthly?.[selectedMonth]?.target || 0), 0)
+                        ).toLocaleString()}
+                      </td>
+                      <td className="px-4 py-3 text-sm text-right font-bold">
+                        {selectedMonth === 'annual'
+                          ? Object.values(truckData).reduce((s, t) => s + (t.annual?.trips || 0), 0)
+                          : Object.values(truckData).reduce((s, t) => s + (t.monthly?.[selectedMonth]?.trips || 0), 0)}
+                      </td>
+                      <td colSpan={2}></td>
+                    </tr>
+                  </tfoot>
+                </table>
+              </div>
+
+              {/* Per-Truck Monthly Breakdown Cards */}
+              {selectedMonth === 'annual' && (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {Object.entries(truckData).map(([truckId, data]) => (
+                    <div key={truckId} className="bg-white rounded-xl border shadow-sm overflow-hidden">
+                      <div className="p-4 border-b bg-gradient-to-r from-blue-50 to-cyan-50">
+                        <h4 className="font-semibold text-sm">{data.truckName || truckId}</h4>
+                        <p className="text-xs text-slate-500">{data.driver || 'Unassigned'}</p>
+                      </div>
+                      <div className="p-4 space-y-3">
+                        <div className="flex justify-between text-sm">
+                          <span className="text-slate-500">Annual Revenue</span>
+                          <span className="font-semibold">R {(data.annual?.revenue || 0).toLocaleString()}</span>
+                        </div>
+                        <div className="flex justify-between text-sm">
+                          <span className="text-slate-500">Annual Target</span>
+                          <span className="font-medium text-purple-600">R {(data.annual?.target || 0).toLocaleString()}</span>
+                        </div>
+                        <div className="flex justify-between text-sm">
+                          <span className="text-slate-500">Planned Trips</span>
+                          <span className="font-medium">{data.annual?.trips || 0}</span>
+                        </div>
+                        <div className="flex justify-between text-sm">
+                          <span className="text-slate-500">Avg Revenue/Trip</span>
+                          <span className="font-medium">R {(data.annual?.avgPerTrip || 0).toLocaleString()}</span>
+                        </div>
+                        {/* Progress bar towards target */}
+                        <div>
+                          <div className="flex justify-between text-xs text-slate-500 mb-1">
+                            <span>Progress to Target</span>
+                            <span>{data.annual?.target > 0 ? ((data.annual?.revenue || 0) / data.annual.target * 100).toFixed(0) : 0}%</span>
+                          </div>
+                          <div className="w-full bg-slate-200 rounded-full h-2">
+                            <div className="bg-blue-500 h-2 rounded-full transition-all" style={{ width: `${Math.min(data.annual?.target > 0 ? (data.annual.revenue || 0) / data.annual.target * 100 : 0, 100)}%` }}></div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </>
+          )}
+        </div>
+      )}
+
+      {/* ===== PER TRIP VIEW ===== */}
+      {activeView === 'trip' && (
+        <div className="space-y-4">
+          {/* Filter Bar */}
+          {isHaulage && (
+            <div className="flex gap-3 items-center">
+              <span className="text-sm text-slate-600">Filter by truck:</span>
+              <Select value={filterTruck} onChange={e => setFilterTruck(e.target.value)}>
+                <option value="all">All Trucks</option>
+                {availableTrucks.map(t => (
+                  <option key={t.fleetNo} value={t.fleetNo}>{t.fleetNo} - {t.make} {t.model}</option>
+                ))}
+                {availableTrucks.length === 0 && Object.keys(truckData).map(id => (
+                  <option key={id} value={id}>{id}</option>
+                ))}
+              </Select>
+              <span className="text-sm text-slate-400">Showing {filteredTrips.length} of {tripData.length} trips</span>
+            </div>
+          )}
+
+          {filteredTrips.length === 0 ? (
+            <div className="bg-white rounded-xl border shadow-sm p-8 text-center">
+              <div className="p-4 bg-slate-100 rounded-full w-16 h-16 mx-auto mb-4 flex items-center justify-center">
+                <Icons.Clipboard />
+              </div>
+              <h3 className="text-lg font-semibold mb-2">No Trip Budgets</h3>
+              <p className="text-slate-500 mb-4">{isHaulage ? 'No budgeted trips found for the selected filters.' : 'Trip-level data is only available for haulage companies.'}</p>
+              {isHaulage && (
+                <button onClick={() => setShowAddTripModal(true)} className="px-4 py-2 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700">
+                  <span className="flex items-center gap-2"><Icons.Plus />Add First Trip Budget</span>
+                </button>
+              )}
+            </div>
+          ) : (
+            <>
+              {/* Trip Summary Cards */}
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <div className="bg-white rounded-xl border shadow-sm p-4">
+                  <p className="text-xs text-slate-500 mb-1">Total Trips</p>
+                  <p className="text-2xl font-bold">{filteredTrips.length}</p>
+                </div>
+                <div className="bg-white rounded-xl border shadow-sm p-4">
+                  <p className="text-xs text-slate-500 mb-1">Total Budgeted</p>
+                  <p className="text-2xl font-bold text-blue-600">R {filteredTrips.reduce((s, t) => s + (t.budgetedRevenue || 0), 0).toLocaleString()}</p>
+                </div>
+                <div className="bg-white rounded-xl border shadow-sm p-4">
+                  <p className="text-xs text-slate-500 mb-1">Total Actual</p>
+                  <p className="text-2xl font-bold text-emerald-600">R {filteredTrips.reduce((s, t) => s + (t.actualRevenue || 0), 0).toLocaleString()}</p>
+                </div>
+                <div className="bg-white rounded-xl border shadow-sm p-4">
+                  <p className="text-xs text-slate-500 mb-1">Avg Revenue/Trip</p>
+                  <p className="text-2xl font-bold text-purple-600">R {filteredTrips.length > 0 ? Math.round(filteredTrips.reduce((s, t) => s + (t.budgetedRevenue || 0), 0) / filteredTrips.length).toLocaleString() : 0}</p>
+                </div>
+              </div>
+
+              {/* Trips Table */}
+              <div className="bg-white rounded-xl border shadow-sm overflow-hidden">
+                <div className="p-4 border-b bg-slate-50 flex justify-between items-center">
+                  <h3 className="font-semibold">Trip Revenue Budgets</h3>
+                </div>
+                <table className="w-full">
+                  <thead className="bg-slate-50 border-b">
+                    <tr>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-slate-600">Trip ID</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-slate-600">Date</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-slate-600">Truck</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-slate-600">Route</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-slate-600">Customer</th>
+                      <th className="px-4 py-3 text-right text-xs font-medium text-slate-600">Distance (km)</th>
+                      <th className="px-4 py-3 text-right text-xs font-medium text-slate-600">Rate/km (R)</th>
+                      <th className="px-4 py-3 text-right text-xs font-medium text-slate-600">Budgeted (R)</th>
+                      <th className="px-4 py-3 text-right text-xs font-medium text-slate-600">Actual (R)</th>
+                      <th className="px-4 py-3 text-right text-xs font-medium text-slate-600">Variance (R)</th>
+                      <th className="px-4 py-3 text-center text-xs font-medium text-slate-600">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {filteredTrips.map(trip => {
+                      const tripVar = (trip.actualRevenue || 0) - (trip.budgetedRevenue || 0);
+                      return (
+                        <tr key={trip.tripId} className="border-b hover:bg-slate-50">
+                          <td className="px-4 py-3 text-sm font-medium text-blue-600">{trip.tripId}</td>
+                          <td className="px-4 py-3 text-sm">{trip.date}</td>
+                          <td className="px-4 py-3 text-sm">
+                            <Badge variant="info">{trip.truck}</Badge>
+                          </td>
+                          <td className="px-4 py-3 text-sm">{trip.route}</td>
+                          <td className="px-4 py-3 text-sm text-slate-600">{trip.customer || '-'}</td>
+                          <td className="px-4 py-3 text-sm text-right">{(trip.distance || 0).toLocaleString()}</td>
+                          <td className="px-4 py-3 text-sm text-right text-slate-500">R {(trip.ratePerKm || 0).toFixed(2)}</td>
+                          <td className="px-4 py-3 text-sm text-right font-semibold">R {(trip.budgetedRevenue || 0).toLocaleString()}</td>
+                          <td className="px-4 py-3 text-sm text-right font-semibold">R {(trip.actualRevenue || 0).toLocaleString()}</td>
+                          <td className={`px-4 py-3 text-sm text-right font-semibold ${tripVar >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>
+                            {tripVar >= 0 ? '+' : ''}R {tripVar.toLocaleString()}
+                          </td>
+                          <td className="px-4 py-3">
+                            <div className="flex justify-center gap-1">
+                              <button onClick={() => handleDeleteTrip(trip.tripId)} className="p-1.5 text-red-600 hover:bg-red-50 rounded" title="Delete trip budget">
+                                <Icons.Trash />
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                  <tfoot className="bg-blue-50">
+                    <tr>
+                      <td colSpan={5} className="px-4 py-3 text-sm font-bold">TOTAL ({filteredTrips.length} trips)</td>
+                      <td className="px-4 py-3 text-sm text-right font-bold">{filteredTrips.reduce((s, t) => s + (t.distance || 0), 0).toLocaleString()}</td>
+                      <td></td>
+                      <td className="px-4 py-3 text-sm text-right font-bold">R {filteredTrips.reduce((s, t) => s + (t.budgetedRevenue || 0), 0).toLocaleString()}</td>
+                      <td className="px-4 py-3 text-sm text-right font-bold">R {filteredTrips.reduce((s, t) => s + (t.actualRevenue || 0), 0).toLocaleString()}</td>
+                      <td className={`px-4 py-3 text-sm text-right font-bold ${(filteredTrips.reduce((s, t) => s + (t.actualRevenue || 0), 0) - filteredTrips.reduce((s, t) => s + (t.budgetedRevenue || 0), 0)) >= 0 ? 'text-emerald-700' : 'text-red-700'}`}>
+                        {(filteredTrips.reduce((s, t) => s + (t.actualRevenue || 0), 0) - filteredTrips.reduce((s, t) => s + (t.budgetedRevenue || 0), 0)) >= 0 ? '+' : ''}
+                        R {(filteredTrips.reduce((s, t) => s + (t.actualRevenue || 0), 0) - filteredTrips.reduce((s, t) => s + (t.budgetedRevenue || 0), 0)).toLocaleString()}
+                      </td>
+                      <td></td>
+                    </tr>
+                  </tfoot>
+                </table>
+              </div>
+            </>
+          )}
+        </div>
+      )}
+
+      {/* Add Trip Budget Modal */}
+      <Modal isOpen={showAddTripModal} onClose={() => setShowAddTripModal(false)} title="Add Trip Revenue Budget" size="lg">
+        <div className="space-y-4">
+          <div className="grid grid-cols-2 gap-4">
+            <FormField label="Date" required>
+              <Input type="date" value={newTrip.date} onChange={e => setNewTrip({ ...newTrip, date: e.target.value })} />
+            </FormField>
+            <FormField label="Truck" required>
+              <Select value={newTrip.truck} onChange={e => setNewTrip({ ...newTrip, truck: e.target.value })}>
+                <option value="">Select Truck</option>
+                {availableTrucks.map(t => (
+                  <option key={t.fleetNo} value={t.fleetNo}>{t.fleetNo} - {t.make} {t.model}</option>
+                ))}
+                {availableTrucks.length === 0 && Object.keys(truckData).map(id => (
+                  <option key={id} value={id}>{id}</option>
+                ))}
+              </Select>
+            </FormField>
+            <FormField label="Route">
+              <Input value={newTrip.route} onChange={e => setNewTrip({ ...newTrip, route: e.target.value })} placeholder="e.g. DBN-JHB" />
+            </FormField>
+            <FormField label="Customer">
+              <Input value={newTrip.customer} onChange={e => setNewTrip({ ...newTrip, customer: e.target.value })} placeholder="Customer name" />
+            </FormField>
+            <FormField label="Load Type">
+              <Input value={newTrip.loadType} onChange={e => setNewTrip({ ...newTrip, loadType: e.target.value })} placeholder="e.g. Coal, General Cargo" />
+            </FormField>
+            <FormField label="Distance (km)">
+              <Input type="number" value={newTrip.distance} onChange={e => setNewTrip({ ...newTrip, distance: e.target.value })} placeholder="0" />
+            </FormField>
+            <FormField label="Rate per km (R)">
+              <Input type="number" step="0.01" value={newTrip.ratePerKm} onChange={e => setNewTrip({ ...newTrip, ratePerKm: e.target.value })} placeholder="0.00" />
+            </FormField>
+            <FormField label="Budgeted Revenue (R)" required>
+              <Input type="number" value={newTrip.budgetedRevenue} onChange={e => setNewTrip({ ...newTrip, budgetedRevenue: e.target.value })} placeholder="0" />
+            </FormField>
+          </div>
+
+          {newTrip.budgetedRevenue > 0 && (
+            <div className="bg-blue-50 rounded-lg p-4">
+              <p className="text-sm text-blue-600">Budgeted Revenue for this Trip</p>
+              <p className="font-bold text-blue-900 text-lg">R {parseFloat(newTrip.budgetedRevenue || 0).toLocaleString()}</p>
+              {newTrip.distance > 0 && newTrip.ratePerKm > 0 && (
+                <p className="text-sm text-blue-600 mt-1">Calculated: {newTrip.distance} km x R{parseFloat(newTrip.ratePerKm).toFixed(2)} = R {(parseFloat(newTrip.distance) * parseFloat(newTrip.ratePerKm)).toLocaleString()}</p>
+              )}
+            </div>
+          )}
+
+          <div className="flex justify-end gap-3 pt-4 border-t">
+            <button onClick={() => setShowAddTripModal(false)} className="px-4 py-2 border rounded-lg">Cancel</button>
+            <button onClick={handleAddTrip} className="px-4 py-2 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700">Add Trip Budget</button>
+          </div>
+        </div>
+      </Modal>
     </div>
   );
 };

@@ -3339,8 +3339,8 @@ const BudgetedRevenueModule = ({ company, config, budgetedRevenue, setBudgetedRe
           value={`R ${(selectedMonth === 'annual' ? (totalActualRevenue - (annualData.totalRevenue || 0)) : variance).toLocaleString()}`}
           icon={variance >= 0 ? <Icons.TrendingUp /> : <Icons.TrendingDown />}
           color={variance >= 0 ? 'emerald' : 'red'}
-          trend={selectedMonth !== 'annual' ? (variancePercent >= 0 ? 'up' : 'down') : undefined}
-          trendLabel={selectedMonth !== 'annual' ? `${Math.abs(variancePercent).toFixed(1)}%` : undefined}
+          trend={selectedMonth !== 'annual' ? variancePercent : undefined}
+          trendLabel={selectedMonth !== 'annual' ? 'vs budget' : undefined}
         />
         <KPICard
           title={selectedMonth === 'annual' ? 'Annual Target' : 'Monthly Target'}

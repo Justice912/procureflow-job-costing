@@ -433,7 +433,7 @@ const initialCompanies = [
 ];
 
 const industryConfig = {
-  haulage: { label: 'Truck Haulage', color: 'from-blue-500 to-cyan-600', icon: 'Truck', modules: ['dashboard', 'fleet', 'jobs', 'actuals', 'budgets', 'budgeted-revenue', 'depreciation', 'reports'] },
+  haulage: { label: 'Truck Haulage', color: 'from-blue-500 to-cyan-600', icon: 'Truck', modules: ['dashboard', 'fleet', 'jobs', 'cost-analysis', 'actuals', 'budgets', 'budgeted-revenue', 'depreciation', 'reports'] },
   construction: { label: 'Construction', color: 'from-amber-500 to-orange-600', icon: 'Building', modules: ['dashboard', 'projects', 'actuals', 'budgets', 'budgeted-revenue', 'depreciation', 'reports'] },
   education: { label: 'Education', color: 'from-purple-500 to-indigo-600', icon: 'GraduationCap', modules: ['dashboard', 'programs', 'actuals', 'budgets', 'budgeted-revenue', 'depreciation', 'reports'] },
 };
@@ -508,21 +508,89 @@ const getIndustryCategories = (industry) => {
   return industryCategories[industry] || industryCategories.haulage;
 };
 
-// Mock Data - Budgets
+// ============================================
+// FINANCIAL YEAR UTILITIES
+// ============================================
+const financialYears = ['2024', '2025', '2026'];
+
+const generateMonths = (year) => {
+  const months = [];
+  for (let m = 1; m <= 12; m++) {
+    const key = `${year}-${String(m).padStart(2, '0')}`;
+    const label = new Date(parseInt(year), m - 1, 1).toLocaleDateString('en-ZA', { month: 'long', year: 'numeric' });
+    months.push({ key, label });
+  }
+  return months;
+};
+
+const getMonthLabel = (monthKey) => {
+  if (!monthKey || monthKey === 'annual') return 'Annual';
+  const [y, m] = monthKey.split('-');
+  return new Date(parseInt(y), parseInt(m) - 1, 1).toLocaleDateString('en-ZA', { month: 'long', year: 'numeric' });
+};
+
+const getAvailableMonths = (dataObj) => {
+  if (!dataObj) return [];
+  const months = new Set();
+  Object.values(dataObj).forEach(companyData => {
+    if (companyData?.monthly) {
+      Object.keys(companyData.monthly).forEach(m => months.add(m));
+    }
+  });
+  return Array.from(months).sort();
+};
+
+// Financial Year month selector component
+const MonthYearSelector = ({ value, onChange, includeAnnual = false, years = financialYears }) => (
+  <Select value={value} onChange={onChange}>
+    {includeAnnual && years.map(y => (
+      <option key={`annual-${y}`} value={`annual-${y}`}>Annual {y}</option>
+    ))}
+    {years.map(y => (
+      <optgroup key={y} label={`FY ${y}`}>
+        {generateMonths(y).map(m => (
+          <option key={m.key} value={m.key}>{m.label}</option>
+        ))}
+      </optgroup>
+    ))}
+  </Select>
+);
+
+// Mock Data - Budgets (FY2024 & FY2025 - Full 12 months each)
 const initialBudgets = {
   '1': { // Transhaul - Haulage
     annual: {
       revenue: 4500000,
       fuel: 850000, driverSalaries: 1080000, directLabour: 180000, tollFees: 120000,
-      repairs: 280000, tyres: 150000, travelAllowance: 96000, parking: 48000,
-      depreciation: 540000,
+      repairs: 280000, tyres: 150000, travelAllowance: 96000, parking: 48000, depreciation: 540000,
       licensing: 85000, insurance: 320000, adminSalaries: 420000, officeRental: 516000,
       utilities: 36000, itServices: 66000, communications: 48000, bankCharges: 12000, other: 60000
     },
     monthly: {
-      '2025-01': { revenue: 380000, fuel: 72000, driverSalaries: 90000, directLabour: 15000, tollFees: 10000, repairs: 25000, tyres: 12000, travelAllowance: 8000, parking: 4000, depreciation: 45000, licensing: 7000, insurance: 27000, adminSalaries: 35000, officeRental: 43000, utilities: 3000, itServices: 5500, communications: 4000, bankCharges: 1000, other: 5000 },
-      '2025-02': { revenue: 400000, fuel: 75000, driverSalaries: 90000, directLabour: 16000, tollFees: 11000, repairs: 22000, tyres: 14000, travelAllowance: 8500, parking: 4200, depreciation: 45000, licensing: 7200, insurance: 27000, adminSalaries: 35000, officeRental: 43000, utilities: 3200, itServices: 5500, communications: 4000, bankCharges: 1000, other: 5200 },
-      '2025-03': { revenue: 420000, fuel: 78000, driverSalaries: 90000, directLabour: 17000, tollFees: 12000, repairs: 28000, tyres: 15000, travelAllowance: 9000, parking: 4500, depreciation: 45000, licensing: 7500, insurance: 27000, adminSalaries: 35000, officeRental: 43000, utilities: 3500, itServices: 5500, communications: 4200, bankCharges: 1100, other: 5500 },
+      '2024-01': { revenue: 297500, fuel: 61200, driverSalaries: 90000, directLabour: 12750, tollFees: 8500, repairs: 21250, tyres: 10200, travelAllowance: 6800, parking: 3400, depreciation: 45000, licensing: 5950, insurance: 27000, adminSalaries: 35000, officeRental: 43000, utilities: 2550, itServices: 5500, communications: 4000, bankCharges: 1000, other: 4250 },
+      '2024-02': { revenue: 315000, fuel: 64800, driverSalaries: 90000, directLabour: 13500, tollFees: 9000, repairs: 22500, tyres: 10800, travelAllowance: 7200, parking: 3600, depreciation: 45000, licensing: 6300, insurance: 27000, adminSalaries: 35000, officeRental: 43000, utilities: 2700, itServices: 5500, communications: 4000, bankCharges: 1000, other: 4500 },
+      '2024-03': { revenue: 332500, fuel: 68400, driverSalaries: 90000, directLabour: 14250, tollFees: 9500, repairs: 23750, tyres: 11400, travelAllowance: 7600, parking: 3800, depreciation: 45000, licensing: 6650, insurance: 27000, adminSalaries: 35000, officeRental: 43000, utilities: 2850, itServices: 5500, communications: 4000, bankCharges: 1000, other: 4750 },
+      '2024-04': { revenue: 350000, fuel: 72000, driverSalaries: 90000, directLabour: 15000, tollFees: 10000, repairs: 25000, tyres: 12000, travelAllowance: 8000, parking: 4000, depreciation: 45000, licensing: 7000, insurance: 27000, adminSalaries: 35000, officeRental: 43000, utilities: 3000, itServices: 5500, communications: 4000, bankCharges: 1000, other: 5000 },
+      '2024-05': { revenue: 367500, fuel: 75600, driverSalaries: 90000, directLabour: 15750, tollFees: 10500, repairs: 26250, tyres: 12600, travelAllowance: 8400, parking: 4200, depreciation: 45000, licensing: 7350, insurance: 27000, adminSalaries: 35000, officeRental: 43000, utilities: 3150, itServices: 5500, communications: 4000, bankCharges: 1000, other: 5250 },
+      '2024-06': { revenue: 357000, fuel: 73440, driverSalaries: 90000, directLabour: 15300, tollFees: 10200, repairs: 25500, tyres: 12240, travelAllowance: 8160, parking: 4080, depreciation: 45000, licensing: 7140, insurance: 27000, adminSalaries: 35000, officeRental: 43000, utilities: 3060, itServices: 5500, communications: 4000, bankCharges: 1000, other: 5100 },
+      '2024-07': { revenue: 343000, fuel: 70560, driverSalaries: 90000, directLabour: 14700, tollFees: 9800, repairs: 24500, tyres: 11760, travelAllowance: 7840, parking: 3920, depreciation: 45000, licensing: 6860, insurance: 27000, adminSalaries: 35000, officeRental: 43000, utilities: 2940, itServices: 5500, communications: 4000, bankCharges: 1000, other: 4900 },
+      '2024-08': { revenue: 350000, fuel: 72000, driverSalaries: 90000, directLabour: 15000, tollFees: 10000, repairs: 25000, tyres: 12000, travelAllowance: 8000, parking: 4000, depreciation: 45000, licensing: 7000, insurance: 27000, adminSalaries: 35000, officeRental: 43000, utilities: 3000, itServices: 5500, communications: 4000, bankCharges: 1000, other: 5000 },
+      '2024-09': { revenue: 367500, fuel: 75600, driverSalaries: 90000, directLabour: 15750, tollFees: 10500, repairs: 26250, tyres: 12600, travelAllowance: 8400, parking: 4200, depreciation: 45000, licensing: 7350, insurance: 27000, adminSalaries: 35000, officeRental: 43000, utilities: 3150, itServices: 5500, communications: 4000, bankCharges: 1000, other: 5250 },
+      '2024-10': { revenue: 385000, fuel: 79200, driverSalaries: 90000, directLabour: 16500, tollFees: 11000, repairs: 27500, tyres: 13200, travelAllowance: 8800, parking: 4400, depreciation: 45000, licensing: 7700, insurance: 27000, adminSalaries: 35000, officeRental: 43000, utilities: 3300, itServices: 5500, communications: 4000, bankCharges: 1000, other: 5500 },
+      '2024-11': { revenue: 350000, fuel: 72000, driverSalaries: 90000, directLabour: 15000, tollFees: 10000, repairs: 25000, tyres: 12000, travelAllowance: 8000, parking: 4000, depreciation: 45000, licensing: 7000, insurance: 27000, adminSalaries: 35000, officeRental: 43000, utilities: 3000, itServices: 5500, communications: 4000, bankCharges: 1000, other: 5000 },
+      '2024-12': { revenue: 308000, fuel: 63360, driverSalaries: 90000, directLabour: 13200, tollFees: 8800, repairs: 22000, tyres: 10560, travelAllowance: 7040, parking: 3520, depreciation: 45000, licensing: 6160, insurance: 27000, adminSalaries: 35000, officeRental: 43000, utilities: 2640, itServices: 5500, communications: 4000, bankCharges: 1000, other: 4400 },
+      '2025-01': { revenue: 323000, fuel: 61200, driverSalaries: 90000, directLabour: 12750, tollFees: 8500, repairs: 21250, tyres: 10200, travelAllowance: 6800, parking: 3400, depreciation: 45000, licensing: 5950, insurance: 27000, adminSalaries: 35000, officeRental: 43000, utilities: 2550, itServices: 5500, communications: 4000, bankCharges: 1000, other: 4250 },
+      '2025-02': { revenue: 342000, fuel: 64800, driverSalaries: 90000, directLabour: 13500, tollFees: 9000, repairs: 22500, tyres: 10800, travelAllowance: 7200, parking: 3600, depreciation: 45000, licensing: 6300, insurance: 27000, adminSalaries: 35000, officeRental: 43000, utilities: 2700, itServices: 5500, communications: 4000, bankCharges: 1000, other: 4500 },
+      '2025-03': { revenue: 361000, fuel: 68400, driverSalaries: 90000, directLabour: 14250, tollFees: 9500, repairs: 23750, tyres: 11400, travelAllowance: 7600, parking: 3800, depreciation: 45000, licensing: 6650, insurance: 27000, adminSalaries: 35000, officeRental: 43000, utilities: 2850, itServices: 5500, communications: 4000, bankCharges: 1000, other: 4750 },
+      '2025-04': { revenue: 380000, fuel: 72000, driverSalaries: 90000, directLabour: 15000, tollFees: 10000, repairs: 25000, tyres: 12000, travelAllowance: 8000, parking: 4000, depreciation: 45000, licensing: 7000, insurance: 27000, adminSalaries: 35000, officeRental: 43000, utilities: 3000, itServices: 5500, communications: 4000, bankCharges: 1000, other: 5000 },
+      '2025-05': { revenue: 399000, fuel: 75600, driverSalaries: 90000, directLabour: 15750, tollFees: 10500, repairs: 26250, tyres: 12600, travelAllowance: 8400, parking: 4200, depreciation: 45000, licensing: 7350, insurance: 27000, adminSalaries: 35000, officeRental: 43000, utilities: 3150, itServices: 5500, communications: 4000, bankCharges: 1000, other: 5250 },
+      '2025-06': { revenue: 387600, fuel: 73440, driverSalaries: 90000, directLabour: 15300, tollFees: 10200, repairs: 25500, tyres: 12240, travelAllowance: 8160, parking: 4080, depreciation: 45000, licensing: 7140, insurance: 27000, adminSalaries: 35000, officeRental: 43000, utilities: 3060, itServices: 5500, communications: 4000, bankCharges: 1000, other: 5100 },
+      '2025-07': { revenue: 372400, fuel: 70560, driverSalaries: 90000, directLabour: 14700, tollFees: 9800, repairs: 24500, tyres: 11760, travelAllowance: 7840, parking: 3920, depreciation: 45000, licensing: 6860, insurance: 27000, adminSalaries: 35000, officeRental: 43000, utilities: 2940, itServices: 5500, communications: 4000, bankCharges: 1000, other: 4900 },
+      '2025-08': { revenue: 380000, fuel: 72000, driverSalaries: 90000, directLabour: 15000, tollFees: 10000, repairs: 25000, tyres: 12000, travelAllowance: 8000, parking: 4000, depreciation: 45000, licensing: 7000, insurance: 27000, adminSalaries: 35000, officeRental: 43000, utilities: 3000, itServices: 5500, communications: 4000, bankCharges: 1000, other: 5000 },
+      '2025-09': { revenue: 399000, fuel: 75600, driverSalaries: 90000, directLabour: 15750, tollFees: 10500, repairs: 26250, tyres: 12600, travelAllowance: 8400, parking: 4200, depreciation: 45000, licensing: 7350, insurance: 27000, adminSalaries: 35000, officeRental: 43000, utilities: 3150, itServices: 5500, communications: 4000, bankCharges: 1000, other: 5250 },
+      '2025-10': { revenue: 418000, fuel: 79200, driverSalaries: 90000, directLabour: 16500, tollFees: 11000, repairs: 27500, tyres: 13200, travelAllowance: 8800, parking: 4400, depreciation: 45000, licensing: 7700, insurance: 27000, adminSalaries: 35000, officeRental: 43000, utilities: 3300, itServices: 5500, communications: 4000, bankCharges: 1000, other: 5500 },
+      '2025-11': { revenue: 380000, fuel: 72000, driverSalaries: 90000, directLabour: 15000, tollFees: 10000, repairs: 25000, tyres: 12000, travelAllowance: 8000, parking: 4000, depreciation: 45000, licensing: 7000, insurance: 27000, adminSalaries: 35000, officeRental: 43000, utilities: 3000, itServices: 5500, communications: 4000, bankCharges: 1000, other: 5000 },
+      '2025-12': { revenue: 334400, fuel: 63360, driverSalaries: 90000, directLabour: 13200, tollFees: 8800, repairs: 22000, tyres: 10560, travelAllowance: 7040, parking: 3520, depreciation: 45000, licensing: 6160, insurance: 27000, adminSalaries: 35000, officeRental: 43000, utilities: 2640, itServices: 5500, communications: 4000, bankCharges: 1000, other: 4400 }
     },
     byTruck: {
       'TA-001': { revenue: 1800000, fuel: 340000, repairs: 112000, tyres: 60000, tolls: 48000, depreciation: 166000 },
@@ -540,15 +608,35 @@ const initialBudgets = {
     annual: {
       revenue: 45000000,
       materials: 12500000, subcontractors: 8500000, siteLabour: 6200000, equipmentHire: 2800000,
-      plantFuel: 1200000, siteCosts: 850000, scaffolding: 650000, concrete: 3200000,
-      depreciation: 1800000,
+      plantFuel: 1200000, siteCosts: 850000, scaffolding: 650000, concrete: 3200000, depreciation: 1800000,
       siteServices: 420000, healthSafety: 380000, qualityControl: 280000, insurance: 950000, permits: 180000,
       adminSalaries: 1850000, officeRental: 480000, professional: 650000, bankCharges: 85000, other: 320000
     },
     monthly: {
-      '2025-01': { revenue: 3800000, materials: 1050000, subcontractors: 720000, siteLabour: 520000, equipmentHire: 235000, plantFuel: 100000, siteCosts: 72000, scaffolding: 55000, concrete: 270000, depreciation: 150000, siteServices: 35000, healthSafety: 32000, qualityControl: 24000, insurance: 80000, permits: 15000, adminSalaries: 155000, officeRental: 40000, professional: 55000, bankCharges: 7000, other: 27000 },
-      '2025-02': { revenue: 4200000, materials: 1150000, subcontractors: 780000, siteLabour: 560000, equipmentHire: 255000, plantFuel: 110000, siteCosts: 78000, scaffolding: 60000, concrete: 295000, depreciation: 150000, siteServices: 38000, healthSafety: 35000, qualityControl: 26000, insurance: 80000, permits: 18000, adminSalaries: 155000, officeRental: 40000, professional: 60000, bankCharges: 7500, other: 30000 },
-      '2025-03': { revenue: 4500000, materials: 1250000, subcontractors: 850000, siteLabour: 600000, equipmentHire: 275000, plantFuel: 120000, siteCosts: 85000, scaffolding: 65000, concrete: 320000, depreciation: 150000, siteServices: 42000, healthSafety: 38000, qualityControl: 28000, insurance: 80000, permits: 20000, adminSalaries: 155000, officeRental: 40000, professional: 65000, bankCharges: 8000, other: 32000 },
+      '2024-01': { revenue: 2975000, materials: 892500, subcontractors: 612000, siteLabour: 442000, equipmentHire: 199750, plantFuel: 85000, siteCosts: 61200, scaffolding: 46750, concrete: 229500, depreciation: 150000, siteServices: 29750, healthSafety: 27200, qualityControl: 20400, insurance: 80000, permits: 12750, adminSalaries: 155000, officeRental: 40000, professional: 46750, bankCharges: 5950, other: 22950 },
+      '2024-02': { revenue: 3325000, materials: 997500, subcontractors: 684000, siteLabour: 494000, equipmentHire: 223250, plantFuel: 95000, siteCosts: 68400, scaffolding: 52250, concrete: 256500, depreciation: 150000, siteServices: 33250, healthSafety: 30400, qualityControl: 22800, insurance: 80000, permits: 14250, adminSalaries: 155000, officeRental: 40000, professional: 52250, bankCharges: 6650, other: 25650 },
+      '2024-03': { revenue: 3500000, materials: 1050000, subcontractors: 720000, siteLabour: 520000, equipmentHire: 235000, plantFuel: 100000, siteCosts: 72000, scaffolding: 55000, concrete: 270000, depreciation: 150000, siteServices: 35000, healthSafety: 32000, qualityControl: 24000, insurance: 80000, permits: 15000, adminSalaries: 155000, officeRental: 40000, professional: 55000, bankCharges: 7000, other: 27000 },
+      '2024-04': { revenue: 3675000, materials: 1102500, subcontractors: 756000, siteLabour: 546000, equipmentHire: 246750, plantFuel: 105000, siteCosts: 75600, scaffolding: 57750, concrete: 283500, depreciation: 150000, siteServices: 36750, healthSafety: 33600, qualityControl: 25200, insurance: 80000, permits: 15750, adminSalaries: 155000, officeRental: 40000, professional: 57750, bankCharges: 7350, other: 28350 },
+      '2024-05': { revenue: 3850000, materials: 1155000, subcontractors: 792000, siteLabour: 572000, equipmentHire: 258500, plantFuel: 110000, siteCosts: 79200, scaffolding: 60500, concrete: 297000, depreciation: 150000, siteServices: 38500, healthSafety: 35200, qualityControl: 26400, insurance: 80000, permits: 16500, adminSalaries: 155000, officeRental: 40000, professional: 60500, bankCharges: 7700, other: 29700 },
+      '2024-06': { revenue: 3675000, materials: 1102500, subcontractors: 756000, siteLabour: 546000, equipmentHire: 246750, plantFuel: 105000, siteCosts: 75600, scaffolding: 57750, concrete: 283500, depreciation: 150000, siteServices: 36750, healthSafety: 33600, qualityControl: 25200, insurance: 80000, permits: 15750, adminSalaries: 155000, officeRental: 40000, professional: 57750, bankCharges: 7350, other: 28350 },
+      '2024-07': { revenue: 3325000, materials: 997500, subcontractors: 684000, siteLabour: 494000, equipmentHire: 223250, plantFuel: 95000, siteCosts: 68400, scaffolding: 52250, concrete: 256500, depreciation: 150000, siteServices: 33250, healthSafety: 30400, qualityControl: 22800, insurance: 80000, permits: 14250, adminSalaries: 155000, officeRental: 40000, professional: 52250, bankCharges: 6650, other: 25650 },
+      '2024-08': { revenue: 3150000, materials: 945000, subcontractors: 648000, siteLabour: 468000, equipmentHire: 211500, plantFuel: 90000, siteCosts: 64800, scaffolding: 49500, concrete: 243000, depreciation: 150000, siteServices: 31500, healthSafety: 28800, qualityControl: 21600, insurance: 80000, permits: 13500, adminSalaries: 155000, officeRental: 40000, professional: 49500, bankCharges: 6300, other: 24300 },
+      '2024-09': { revenue: 3500000, materials: 1050000, subcontractors: 720000, siteLabour: 520000, equipmentHire: 235000, plantFuel: 100000, siteCosts: 72000, scaffolding: 55000, concrete: 270000, depreciation: 150000, siteServices: 35000, healthSafety: 32000, qualityControl: 24000, insurance: 80000, permits: 15000, adminSalaries: 155000, officeRental: 40000, professional: 55000, bankCharges: 7000, other: 27000 },
+      '2024-10': { revenue: 3675000, materials: 1102500, subcontractors: 756000, siteLabour: 546000, equipmentHire: 246750, plantFuel: 105000, siteCosts: 75600, scaffolding: 57750, concrete: 283500, depreciation: 150000, siteServices: 36750, healthSafety: 33600, qualityControl: 25200, insurance: 80000, permits: 15750, adminSalaries: 155000, officeRental: 40000, professional: 57750, bankCharges: 7350, other: 28350 },
+      '2024-11': { revenue: 3780000, materials: 1134000, subcontractors: 777600, siteLabour: 561600, equipmentHire: 253800, plantFuel: 108000, siteCosts: 77760, scaffolding: 59400, concrete: 291600, depreciation: 150000, siteServices: 37800, healthSafety: 34560, qualityControl: 25920, insurance: 80000, permits: 16200, adminSalaries: 155000, officeRental: 40000, professional: 59400, bankCharges: 7560, other: 29160 },
+      '2024-12': { revenue: 2870000, materials: 861000, subcontractors: 590400, siteLabour: 426400, equipmentHire: 192700, plantFuel: 82000, siteCosts: 59040, scaffolding: 45100, concrete: 221400, depreciation: 150000, siteServices: 28700, healthSafety: 26240, qualityControl: 19680, insurance: 80000, permits: 12300, adminSalaries: 155000, officeRental: 40000, professional: 45100, bankCharges: 5740, other: 22140 },
+      '2025-01': { revenue: 3230000, materials: 892500, subcontractors: 612000, siteLabour: 442000, equipmentHire: 199750, plantFuel: 85000, siteCosts: 61200, scaffolding: 46750, concrete: 229500, depreciation: 150000, siteServices: 29750, healthSafety: 27200, qualityControl: 20400, insurance: 80000, permits: 12750, adminSalaries: 155000, officeRental: 40000, professional: 46750, bankCharges: 5950, other: 22950 },
+      '2025-02': { revenue: 3610000, materials: 997500, subcontractors: 684000, siteLabour: 494000, equipmentHire: 223250, plantFuel: 95000, siteCosts: 68400, scaffolding: 52250, concrete: 256500, depreciation: 150000, siteServices: 33250, healthSafety: 30400, qualityControl: 22800, insurance: 80000, permits: 14250, adminSalaries: 155000, officeRental: 40000, professional: 52250, bankCharges: 6650, other: 25650 },
+      '2025-03': { revenue: 3800000, materials: 1050000, subcontractors: 720000, siteLabour: 520000, equipmentHire: 235000, plantFuel: 100000, siteCosts: 72000, scaffolding: 55000, concrete: 270000, depreciation: 150000, siteServices: 35000, healthSafety: 32000, qualityControl: 24000, insurance: 80000, permits: 15000, adminSalaries: 155000, officeRental: 40000, professional: 55000, bankCharges: 7000, other: 27000 },
+      '2025-04': { revenue: 3990000, materials: 1102500, subcontractors: 756000, siteLabour: 546000, equipmentHire: 246750, plantFuel: 105000, siteCosts: 75600, scaffolding: 57750, concrete: 283500, depreciation: 150000, siteServices: 36750, healthSafety: 33600, qualityControl: 25200, insurance: 80000, permits: 15750, adminSalaries: 155000, officeRental: 40000, professional: 57750, bankCharges: 7350, other: 28350 },
+      '2025-05': { revenue: 4180000, materials: 1155000, subcontractors: 792000, siteLabour: 572000, equipmentHire: 258500, plantFuel: 110000, siteCosts: 79200, scaffolding: 60500, concrete: 297000, depreciation: 150000, siteServices: 38500, healthSafety: 35200, qualityControl: 26400, insurance: 80000, permits: 16500, adminSalaries: 155000, officeRental: 40000, professional: 60500, bankCharges: 7700, other: 29700 },
+      '2025-06': { revenue: 3990000, materials: 1102500, subcontractors: 756000, siteLabour: 546000, equipmentHire: 246750, plantFuel: 105000, siteCosts: 75600, scaffolding: 57750, concrete: 283500, depreciation: 150000, siteServices: 36750, healthSafety: 33600, qualityControl: 25200, insurance: 80000, permits: 15750, adminSalaries: 155000, officeRental: 40000, professional: 57750, bankCharges: 7350, other: 28350 },
+      '2025-07': { revenue: 3610000, materials: 997500, subcontractors: 684000, siteLabour: 494000, equipmentHire: 223250, plantFuel: 95000, siteCosts: 68400, scaffolding: 52250, concrete: 256500, depreciation: 150000, siteServices: 33250, healthSafety: 30400, qualityControl: 22800, insurance: 80000, permits: 14250, adminSalaries: 155000, officeRental: 40000, professional: 52250, bankCharges: 6650, other: 25650 },
+      '2025-08': { revenue: 3420000, materials: 945000, subcontractors: 648000, siteLabour: 468000, equipmentHire: 211500, plantFuel: 90000, siteCosts: 64800, scaffolding: 49500, concrete: 243000, depreciation: 150000, siteServices: 31500, healthSafety: 28800, qualityControl: 21600, insurance: 80000, permits: 13500, adminSalaries: 155000, officeRental: 40000, professional: 49500, bankCharges: 6300, other: 24300 },
+      '2025-09': { revenue: 3800000, materials: 1050000, subcontractors: 720000, siteLabour: 520000, equipmentHire: 235000, plantFuel: 100000, siteCosts: 72000, scaffolding: 55000, concrete: 270000, depreciation: 150000, siteServices: 35000, healthSafety: 32000, qualityControl: 24000, insurance: 80000, permits: 15000, adminSalaries: 155000, officeRental: 40000, professional: 55000, bankCharges: 7000, other: 27000 },
+      '2025-10': { revenue: 3990000, materials: 1102500, subcontractors: 756000, siteLabour: 546000, equipmentHire: 246750, plantFuel: 105000, siteCosts: 75600, scaffolding: 57750, concrete: 283500, depreciation: 150000, siteServices: 36750, healthSafety: 33600, qualityControl: 25200, insurance: 80000, permits: 15750, adminSalaries: 155000, officeRental: 40000, professional: 57750, bankCharges: 7350, other: 28350 },
+      '2025-11': { revenue: 4104000, materials: 1134000, subcontractors: 777600, siteLabour: 561600, equipmentHire: 253800, plantFuel: 108000, siteCosts: 77760, scaffolding: 59400, concrete: 291600, depreciation: 150000, siteServices: 37800, healthSafety: 34560, qualityControl: 25920, insurance: 80000, permits: 16200, adminSalaries: 155000, officeRental: 40000, professional: 59400, bankCharges: 7560, other: 29160 },
+      '2025-12': { revenue: 3116000, materials: 861000, subcontractors: 590400, siteLabour: 426400, equipmentHire: 192700, plantFuel: 82000, siteCosts: 59040, scaffolding: 45100, concrete: 221400, depreciation: 150000, siteServices: 28700, healthSafety: 26240, qualityControl: 19680, insurance: 80000, permits: 12300, adminSalaries: 155000, officeRental: 40000, professional: 45100, bankCharges: 5740, other: 22140 }
     },
     byProject: {
       'PRJ-001': { revenue: 18000000, materials: 5000000, subcontractors: 3400000, labour: 2500000, equipment: 1200000, depreciation: 720000 },
@@ -565,9 +653,30 @@ const initialBudgets = {
       adminSalaries: 920000, marketing: 380000, insurance: 220000, bankCharges: 45000, other: 180000
     },
     monthly: {
-      '2025-01': { revenue: 1050000, academicSalaries: 350000, supportStaff: 155000, learningMaterials: 58000, examinations: 35000, studentServices: 32000, practicals: 44000, depreciation: 37500, facilities: 49000, utilities: 27000, security: 24000, cleaning: 15000, itInfrastructure: 55000, accreditation: 15500, adminSalaries: 77000, marketing: 32000, insurance: 18500, bankCharges: 3800, other: 15000 },
-      '2025-02': { revenue: 1100000, academicSalaries: 350000, supportStaff: 155000, learningMaterials: 62000, examinations: 38000, studentServices: 34000, practicals: 48000, depreciation: 37500, facilities: 52000, utilities: 29000, security: 24000, cleaning: 16000, itInfrastructure: 58000, accreditation: 16000, adminSalaries: 77000, marketing: 35000, insurance: 18500, bankCharges: 4000, other: 16000 },
-      '2025-03': { revenue: 1150000, academicSalaries: 350000, supportStaff: 155000, learningMaterials: 65000, examinations: 42000, studentServices: 36000, practicals: 52000, depreciation: 37500, facilities: 55000, utilities: 31000, security: 24000, cleaning: 17000, itInfrastructure: 62000, accreditation: 17000, adminSalaries: 77000, marketing: 38000, insurance: 18500, bankCharges: 4200, other: 17000 },
+      '2024-01': { revenue: 1045000, academicSalaries: 350000, supportStaff: 155000, learningMaterials: 63800, examinations: 38500, studentServices: 35200, practicals: 48400, depreciation: 37500, facilities: 53900, utilities: 29700, security: 24000, cleaning: 16500, itInfrastructure: 60500, accreditation: 17050, adminSalaries: 77000, marketing: 35200, insurance: 18500, bankCharges: 4180, other: 16500 },
+      '2024-02': { revenue: 997500, academicSalaries: 350000, supportStaff: 155000, learningMaterials: 60900, examinations: 36750, studentServices: 33600, practicals: 46200, depreciation: 37500, facilities: 51450, utilities: 28350, security: 24000, cleaning: 15750, itInfrastructure: 57750, accreditation: 16275, adminSalaries: 77000, marketing: 33600, insurance: 18500, bankCharges: 3990, other: 15750 },
+      '2024-03': { revenue: 950000, academicSalaries: 350000, supportStaff: 155000, learningMaterials: 58000, examinations: 35000, studentServices: 32000, practicals: 44000, depreciation: 37500, facilities: 49000, utilities: 27000, security: 24000, cleaning: 15000, itInfrastructure: 55000, accreditation: 15500, adminSalaries: 77000, marketing: 32000, insurance: 18500, bankCharges: 3800, other: 15000 },
+      '2024-04': { revenue: 902500, academicSalaries: 350000, supportStaff: 155000, learningMaterials: 55100, examinations: 33250, studentServices: 30400, practicals: 41800, depreciation: 37500, facilities: 46550, utilities: 25650, security: 24000, cleaning: 14250, itInfrastructure: 52250, accreditation: 14725, adminSalaries: 77000, marketing: 30400, insurance: 18500, bankCharges: 3610, other: 14250 },
+      '2024-05': { revenue: 855000, academicSalaries: 350000, supportStaff: 155000, learningMaterials: 52200, examinations: 31500, studentServices: 28800, practicals: 39600, depreciation: 37500, facilities: 44100, utilities: 24300, security: 24000, cleaning: 13500, itInfrastructure: 49500, accreditation: 13950, adminSalaries: 77000, marketing: 28800, insurance: 18500, bankCharges: 3420, other: 13500 },
+      '2024-06': { revenue: 807500, academicSalaries: 350000, supportStaff: 155000, learningMaterials: 49300, examinations: 29750, studentServices: 27200, practicals: 37400, depreciation: 37500, facilities: 41650, utilities: 22950, security: 24000, cleaning: 12750, itInfrastructure: 46750, accreditation: 13175, adminSalaries: 77000, marketing: 27200, insurance: 18500, bankCharges: 3230, other: 12750 },
+      '2024-07': { revenue: 760000, academicSalaries: 350000, supportStaff: 155000, learningMaterials: 46400, examinations: 28000, studentServices: 25600, practicals: 35200, depreciation: 37500, facilities: 39200, utilities: 21600, security: 24000, cleaning: 12000, itInfrastructure: 44000, accreditation: 12400, adminSalaries: 77000, marketing: 25600, insurance: 18500, bankCharges: 3040, other: 12000 },
+      '2024-08': { revenue: 779000, academicSalaries: 350000, supportStaff: 155000, learningMaterials: 47560, examinations: 28700, studentServices: 26240, practicals: 36080, depreciation: 37500, facilities: 40180, utilities: 22140, security: 24000, cleaning: 12300, itInfrastructure: 45100, accreditation: 12710, adminSalaries: 77000, marketing: 26240, insurance: 18500, bankCharges: 3116, other: 12300 },
+      '2024-09': { revenue: 902500, academicSalaries: 350000, supportStaff: 155000, learningMaterials: 55100, examinations: 33250, studentServices: 30400, practicals: 41800, depreciation: 37500, facilities: 46550, utilities: 25650, security: 24000, cleaning: 14250, itInfrastructure: 52250, accreditation: 14725, adminSalaries: 77000, marketing: 30400, insurance: 18500, bankCharges: 3610, other: 14250 },
+      '2024-10': { revenue: 997500, academicSalaries: 350000, supportStaff: 155000, learningMaterials: 60900, examinations: 36750, studentServices: 33600, practicals: 46200, depreciation: 37500, facilities: 51450, utilities: 28350, security: 24000, cleaning: 15750, itInfrastructure: 57750, accreditation: 16275, adminSalaries: 77000, marketing: 33600, insurance: 18500, bankCharges: 3990, other: 15750 },
+      '2024-11': { revenue: 1026000, academicSalaries: 350000, supportStaff: 155000, learningMaterials: 62640, examinations: 37800, studentServices: 34560, practicals: 47520, depreciation: 37500, facilities: 52920, utilities: 29160, security: 24000, cleaning: 16200, itInfrastructure: 59400, accreditation: 16740, adminSalaries: 77000, marketing: 34560, insurance: 18500, bankCharges: 4104, other: 16200 },
+      '2024-12': { revenue: 712500, academicSalaries: 350000, supportStaff: 155000, learningMaterials: 43500, examinations: 26250, studentServices: 24000, practicals: 33000, depreciation: 37500, facilities: 36750, utilities: 20250, security: 24000, cleaning: 11250, itInfrastructure: 41250, accreditation: 11625, adminSalaries: 77000, marketing: 24000, insurance: 18500, bankCharges: 2850, other: 11250 },
+      '2025-01': { revenue: 1155000, academicSalaries: 350000, supportStaff: 155000, learningMaterials: 63800, examinations: 38500, studentServices: 35200, practicals: 48400, depreciation: 37500, facilities: 53900, utilities: 29700, security: 24000, cleaning: 16500, itInfrastructure: 60500, accreditation: 17050, adminSalaries: 77000, marketing: 35200, insurance: 18500, bankCharges: 4180, other: 16500 },
+      '2025-02': { revenue: 1102500, academicSalaries: 350000, supportStaff: 155000, learningMaterials: 60900, examinations: 36750, studentServices: 33600, practicals: 46200, depreciation: 37500, facilities: 51450, utilities: 28350, security: 24000, cleaning: 15750, itInfrastructure: 57750, accreditation: 16275, adminSalaries: 77000, marketing: 33600, insurance: 18500, bankCharges: 3990, other: 15750 },
+      '2025-03': { revenue: 1050000, academicSalaries: 350000, supportStaff: 155000, learningMaterials: 58000, examinations: 35000, studentServices: 32000, practicals: 44000, depreciation: 37500, facilities: 49000, utilities: 27000, security: 24000, cleaning: 15000, itInfrastructure: 55000, accreditation: 15500, adminSalaries: 77000, marketing: 32000, insurance: 18500, bankCharges: 3800, other: 15000 },
+      '2025-04': { revenue: 997500, academicSalaries: 350000, supportStaff: 155000, learningMaterials: 55100, examinations: 33250, studentServices: 30400, practicals: 41800, depreciation: 37500, facilities: 46550, utilities: 25650, security: 24000, cleaning: 14250, itInfrastructure: 52250, accreditation: 14725, adminSalaries: 77000, marketing: 30400, insurance: 18500, bankCharges: 3610, other: 14250 },
+      '2025-05': { revenue: 945000, academicSalaries: 350000, supportStaff: 155000, learningMaterials: 52200, examinations: 31500, studentServices: 28800, practicals: 39600, depreciation: 37500, facilities: 44100, utilities: 24300, security: 24000, cleaning: 13500, itInfrastructure: 49500, accreditation: 13950, adminSalaries: 77000, marketing: 28800, insurance: 18500, bankCharges: 3420, other: 13500 },
+      '2025-06': { revenue: 892500, academicSalaries: 350000, supportStaff: 155000, learningMaterials: 49300, examinations: 29750, studentServices: 27200, practicals: 37400, depreciation: 37500, facilities: 41650, utilities: 22950, security: 24000, cleaning: 12750, itInfrastructure: 46750, accreditation: 13175, adminSalaries: 77000, marketing: 27200, insurance: 18500, bankCharges: 3230, other: 12750 },
+      '2025-07': { revenue: 840000, academicSalaries: 350000, supportStaff: 155000, learningMaterials: 46400, examinations: 28000, studentServices: 25600, practicals: 35200, depreciation: 37500, facilities: 39200, utilities: 21600, security: 24000, cleaning: 12000, itInfrastructure: 44000, accreditation: 12400, adminSalaries: 77000, marketing: 25600, insurance: 18500, bankCharges: 3040, other: 12000 },
+      '2025-08': { revenue: 861000, academicSalaries: 350000, supportStaff: 155000, learningMaterials: 47560, examinations: 28700, studentServices: 26240, practicals: 36080, depreciation: 37500, facilities: 40180, utilities: 22140, security: 24000, cleaning: 12300, itInfrastructure: 45100, accreditation: 12710, adminSalaries: 77000, marketing: 26240, insurance: 18500, bankCharges: 3116, other: 12300 },
+      '2025-09': { revenue: 997500, academicSalaries: 350000, supportStaff: 155000, learningMaterials: 55100, examinations: 33250, studentServices: 30400, practicals: 41800, depreciation: 37500, facilities: 46550, utilities: 25650, security: 24000, cleaning: 14250, itInfrastructure: 52250, accreditation: 14725, adminSalaries: 77000, marketing: 30400, insurance: 18500, bankCharges: 3610, other: 14250 },
+      '2025-10': { revenue: 1102500, academicSalaries: 350000, supportStaff: 155000, learningMaterials: 60900, examinations: 36750, studentServices: 33600, practicals: 46200, depreciation: 37500, facilities: 51450, utilities: 28350, security: 24000, cleaning: 15750, itInfrastructure: 57750, accreditation: 16275, adminSalaries: 77000, marketing: 33600, insurance: 18500, bankCharges: 3990, other: 15750 },
+      '2025-11': { revenue: 1134000, academicSalaries: 350000, supportStaff: 155000, learningMaterials: 62640, examinations: 37800, studentServices: 34560, practicals: 47520, depreciation: 37500, facilities: 52920, utilities: 29160, security: 24000, cleaning: 16200, itInfrastructure: 59400, accreditation: 16740, adminSalaries: 77000, marketing: 34560, insurance: 18500, bankCharges: 4104, other: 16200 },
+      '2025-12': { revenue: 787500, academicSalaries: 350000, supportStaff: 155000, learningMaterials: 43500, examinations: 26250, studentServices: 24000, practicals: 33000, depreciation: 37500, facilities: 36750, utilities: 20250, security: 24000, cleaning: 11250, itInfrastructure: 41250, accreditation: 11625, adminSalaries: 77000, marketing: 24000, insurance: 18500, bankCharges: 2850, other: 11250 }
     },
     byProgram: {
       'BBA': { revenue: 5500000, academicSalaries: 1850000, materials: 300000, practicals: 180000, depreciation: 200000 },
@@ -577,13 +686,34 @@ const initialBudgets = {
   }
 };
 
-// Mock Data - Actuals
+// Mock Data - Actuals (FY2024 & FY2025 - Full 12 months each)
 const initialActuals = {
   '1': { // Transhaul - Haulage
     monthly: {
-      '2025-01': { revenue: 346320, fuel: 75753, driverSalaries: 85300, directLabour: 13167, tollFees: 8100, repairs: 37915, tyres: 8850, travelAllowance: 4925, parking: 2230, depreciation: 45833, licensing: 24500, insurance: 72000, adminSalaries: 71100, officeRental: 43000, utilities: 2850, itServices: 5500, communications: 4200, bankCharges: 850, other: 8250 },
-      '2025-02': { revenue: 425000, fuel: 82000, driverSalaries: 88000, directLabour: 14500, tollFees: 9800, repairs: 18500, tyres: 0, travelAllowance: 6200, parking: 3100, depreciation: 45833, licensing: 0, insurance: 72000, adminSalaries: 71100, officeRental: 43000, utilities: 3100, itServices: 5500, communications: 4100, bankCharges: 920, other: 4800 },
-      '2025-03': { revenue: 512000, fuel: 88000, driverSalaries: 92000, directLabour: 18200, tollFees: 12500, repairs: 24000, tyres: 17600, travelAllowance: 8400, parking: 4200, depreciation: 45833, licensing: 0, insurance: 72000, adminSalaries: 71100, officeRental: 43000, utilities: 3400, itServices: 5500, communications: 4300, bankCharges: 980, other: 6200 },
+      '2024-01': { revenue: 284666, fuel: 58990, driverSalaries: 93030, directLabour: 11587, tollFees: 8693, repairs: 23133, tyres: 9581, travelAllowance: 7247, parking: 3251, depreciation: 48350, licensing: 5614, insurance: 25510, adminSalaries: 38033, officeRental: 40619, utilities: 2300, itServices: 5932, communications: 4134, bankCharges: 1028, other: 3939 },
+      '2024-02': { revenue: 291862, fuel: 61177, driverSalaries: 98257, directLabour: 12575, tollFees: 9449, repairs: 24069, tyres: 10271, travelAllowance: 6922, parking: 3498, depreciation: 45086, licensing: 6490, insurance: 26892, adminSalaries: 36553, officeRental: 43432, utilities: 2571, itServices: 5120, communications: 3775, bankCharges: 1024, other: 4396 },
+      '2024-03': { revenue: 356309, fuel: 67357, driverSalaries: 83178, directLabour: 14077, tollFees: 9875, repairs: 22587, tyres: 11230, travelAllowance: 7741, parking: 4023, depreciation: 48340, licensing: 7208, insurance: 26787, adminSalaries: 36520, officeRental: 40654, utilities: 2780, itServices: 6010, communications: 4053, bankCharges: 1005, other: 5013 },
+      '2024-04': { revenue: 375763, fuel: 73044, driverSalaries: 92887, directLabour: 14647, tollFees: 9057, repairs: 25929, tyres: 12631, travelAllowance: 8206, parking: 3973, depreciation: 45181, licensing: 7611, insurance: 26516, adminSalaries: 36486, officeRental: 46013, utilities: 3019, itServices: 5957, communications: 4248, bankCharges: 943, other: 4903 },
+      '2024-05': { revenue: 334173, fuel: 71243, driverSalaries: 87229, directLabour: 14213, tollFees: 10993, repairs: 26527, tyres: 12533, travelAllowance: 8109, parking: 4518, depreciation: 41209, licensing: 7209, insurance: 25231, adminSalaries: 37098, officeRental: 43204, utilities: 3303, itServices: 4957, communications: 4142, bankCharges: 936, other: 5581 },
+      '2024-06': { revenue: 322128, fuel: 69537, driverSalaries: 81356, directLabour: 15484, tollFees: 10663, repairs: 27235, tyres: 11319, travelAllowance: 7840, parking: 4122, depreciation: 46790, licensing: 6975, insurance: 28945, adminSalaries: 32605, officeRental: 39047, utilities: 2994, itServices: 5099, communications: 3700, bankCharges: 913, other: 5471 },
+      '2024-07': { revenue: 339936, fuel: 73598, driverSalaries: 82178, directLabour: 15906, tollFees: 8990, repairs: 22925, tyres: 12084, travelAllowance: 7474, parking: 4161, depreciation: 43779, licensing: 6838, insurance: 28437, adminSalaries: 34367, officeRental: 42400, utilities: 2807, itServices: 5913, communications: 4286, bankCharges: 1037, other: 4446 },
+      '2024-08': { revenue: 323525, fuel: 76582, driverSalaries: 83020, directLabour: 15243, tollFees: 10760, repairs: 27115, tyres: 11848, travelAllowance: 8588, parking: 3698, depreciation: 42069, licensing: 7147, insurance: 27393, adminSalaries: 36034, officeRental: 45560, utilities: 2767, itServices: 5215, communications: 3738, bankCharges: 1006, other: 4725 },
+      '2024-09': { revenue: 378932, fuel: 77442, driverSalaries: 89819, directLabour: 15755, tollFees: 11414, repairs: 24988, tyres: 12073, travelAllowance: 7583, parking: 4063, depreciation: 46190, licensing: 7235, insurance: 27810, adminSalaries: 35420, officeRental: 41340, utilities: 3261, itServices: 5209, communications: 3681, bankCharges: 944, other: 5762 },
+      '2024-10': { revenue: 403720, fuel: 72109, driverSalaries: 83295, directLabour: 17756, tollFees: 10969, repairs: 29940, tyres: 14277, travelAllowance: 8125, parking: 4421, depreciation: 42901, licensing: 8431, insurance: 27530, adminSalaries: 37983, officeRental: 46581, utilities: 3378, itServices: 5281, communications: 4321, bankCharges: 1015, other: 5772 },
+      '2024-11': { revenue: 328369, fuel: 75079, driverSalaries: 90974, directLabour: 13588, tollFees: 9838, repairs: 26188, tyres: 12999, travelAllowance: 8219, parking: 4323, depreciation: 47141, licensing: 7216, insurance: 24660, adminSalaries: 36769, officeRental: 45701, utilities: 2756, itServices: 5137, communications: 3884, bankCharges: 916, other: 4866 },
+      '2024-12': { revenue: 317886, fuel: 59358, driverSalaries: 82024, directLabour: 12451, tollFees: 9284, repairs: 22741, tyres: 10410, travelAllowance: 7146, parking: 3565, depreciation: 47182, licensing: 6143, insurance: 28401, adminSalaries: 34461, officeRental: 43178, utilities: 2706, itServices: 5475, communications: 4181, bankCharges: 1099, other: 4695 },
+      '2025-01': { revenue: 326021, fuel: 65600, driverSalaries: 84814, directLabour: 13352, tollFees: 7852, repairs: 20588, tyres: 11001, travelAllowance: 7292, parking: 3645, depreciation: 43496, licensing: 6212, insurance: 29529, adminSalaries: 38228, officeRental: 41933, utilities: 2668, itServices: 5539, communications: 3913, bankCharges: 989, other: 4445 },
+      '2025-02': { revenue: 370085, fuel: 60187, driverSalaries: 96325, directLabour: 13751, tollFees: 8745, repairs: 22982, tyres: 9887, travelAllowance: 6926, parking: 3381, depreciation: 41837, licensing: 6853, insurance: 25697, adminSalaries: 33955, officeRental: 42342, utilities: 2965, itServices: 5174, communications: 3959, bankCharges: 1069, other: 4580 },
+      '2025-03': { revenue: 340485, fuel: 64333, driverSalaries: 86526, directLabour: 14143, tollFees: 10342, repairs: 23208, tyres: 10570, travelAllowance: 7844, parking: 3793, depreciation: 41609, licensing: 6710, insurance: 26206, adminSalaries: 33430, officeRental: 43305, utilities: 2746, itServices: 5718, communications: 3753, bankCharges: 990, other: 4418 },
+      '2025-04': { revenue: 408269, fuel: 70667, driverSalaries: 86451, directLabour: 15751, tollFees: 10164, repairs: 25092, tyres: 12070, travelAllowance: 7745, parking: 4227, depreciation: 42043, licensing: 6437, insurance: 28370, adminSalaries: 35717, officeRental: 45129, utilities: 2855, itServices: 5548, communications: 4254, bankCharges: 1061, other: 4682 },
+      '2025-05': { revenue: 375324, fuel: 68206, driverSalaries: 91287, directLabour: 14975, tollFees: 10490, repairs: 25774, tyres: 12022, travelAllowance: 8952, parking: 4465, depreciation: 41187, licensing: 7566, insurance: 24803, adminSalaries: 32067, officeRental: 39593, utilities: 3292, itServices: 5677, communications: 3674, bankCharges: 1017, other: 5110 },
+      '2025-06': { revenue: 371666, fuel: 74187, driverSalaries: 88072, directLabour: 16076, tollFees: 9845, repairs: 25797, tyres: 11301, travelAllowance: 8105, parking: 4052, depreciation: 48934, licensing: 7368, insurance: 29108, adminSalaries: 35253, officeRental: 41125, utilities: 2867, itServices: 5195, communications: 3606, bankCharges: 1037, other: 5136 },
+      '2025-07': { revenue: 373750, fuel: 63631, driverSalaries: 90150, directLabour: 15702, tollFees: 10601, repairs: 26067, tyres: 12416, travelAllowance: 8141, parking: 4158, depreciation: 41458, licensing: 6741, insurance: 26301, adminSalaries: 33581, officeRental: 46187, utilities: 3127, itServices: 5590, communications: 4118, bankCharges: 915, other: 4512 },
+      '2025-08': { revenue: 343724, fuel: 67535, driverSalaries: 89973, directLabour: 14175, tollFees: 9708, repairs: 25699, tyres: 11005, travelAllowance: 8041, parking: 4120, depreciation: 42275, licensing: 7097, insurance: 25132, adminSalaries: 34244, officeRental: 46817, utilities: 2930, itServices: 5822, communications: 3813, bankCharges: 928, other: 4770 },
+      '2025-09': { revenue: 415836, fuel: 71899, driverSalaries: 88153, directLabour: 15269, tollFees: 10391, repairs: 26035, tyres: 11616, travelAllowance: 8012, parking: 4481, depreciation: 42123, licensing: 7887, insurance: 26936, adminSalaries: 33422, officeRental: 43348, utilities: 3350, itServices: 5579, communications: 3631, bankCharges: 1078, other: 5219 },
+      '2025-10': { revenue: 414624, fuel: 73022, driverSalaries: 86024, directLabour: 15863, tollFees: 11894, repairs: 26473, tyres: 12795, travelAllowance: 8921, parking: 4707, depreciation: 46309, licensing: 7969, insurance: 27257, adminSalaries: 34465, officeRental: 40162, utilities: 3585, itServices: 5874, communications: 4351, bankCharges: 1017, other: 5131 },
+      '2025-11': { revenue: 390686, fuel: 76913, driverSalaries: 82322, directLabour: 14987, tollFees: 10464, repairs: 24564, tyres: 11628, travelAllowance: 8095, parking: 3899, depreciation: 40599, licensing: 6638, insurance: 25512, adminSalaries: 38365, officeRental: 43267, utilities: 3050, itServices: 5044, communications: 4209, bankCharges: 940, other: 5220 },
+      '2025-12': { revenue: 331374, fuel: 57774, driverSalaries: 96567, directLabour: 13847, tollFees: 8858, repairs: 20193, tyres: 10888, travelAllowance: 7302, parking: 3699, depreciation: 43004, licensing: 6161, insurance: 28622, adminSalaries: 35905, officeRental: 41905, utilities: 2428, itServices: 5136, communications: 4172, bankCharges: 1046, other: 4143 }
     },
     byTruck: {
       'TA-001': { revenue: 520000, fuel: 95000, repairs: 45000, tyres: 8850, tolls: 12500, depreciation: 27639 },
@@ -599,15 +729,38 @@ const initialActuals = {
     byTrip: [
       { tripId: 'TRIP-001', date: '2025-01-15', truck: 'TA-001', route: 'DBN-JHB', budgetRevenue: 5800, actualRevenue: 5420, budgetFuel: 1100, actualFuel: 1180, budgetTolls: 280, actualTolls: 280 },
       { tripId: 'TRIP-002', date: '2025-01-15', truck: 'TA-002', route: 'DBN-PE', budgetRevenue: 6500, actualRevenue: 6800, budgetFuel: 1350, actualFuel: 1280, budgetTolls: 320, actualTolls: 310 },
-      { tripId: 'TRIP-003', date: '2025-01-16', truck: 'TA-001', route: 'JHB-DBN', budgetRevenue: 2900, actualRevenue: 2750, budgetFuel: 1100, actualFuel: 1150, budgetTolls: 280, actualTolls: 295 },
-      { tripId: 'TRIP-004', date: '2025-01-17', truck: 'TA-003', route: 'DBN-BFN', budgetRevenue: 5200, actualRevenue: 4850, budgetFuel: 1050, actualFuel: 1120, budgetTolls: 175, actualTolls: 175 },
+      { tripId: 'TRIP-003', date: '2025-02-16', truck: 'TA-001', route: 'JHB-DBN', budgetRevenue: 2900, actualRevenue: 2750, budgetFuel: 1100, actualFuel: 1150, budgetTolls: 280, actualTolls: 295 },
+      { tripId: 'TRIP-004', date: '2025-03-17', truck: 'TA-003', route: 'DBN-BFN', budgetRevenue: 5200, actualRevenue: 4850, budgetFuel: 1050, actualFuel: 1120, budgetTolls: 175, actualTolls: 175 },
+      { tripId: 'TRIP-005', date: '2024-06-10', truck: 'TA-001', route: 'DBN-JHB', budgetRevenue: 5500, actualRevenue: 5200, budgetFuel: 1050, actualFuel: 1100, budgetTolls: 280, actualTolls: 280 },
+      { tripId: 'TRIP-006', date: '2024-09-22', truck: 'TA-002', route: 'JHB-CT', budgetRevenue: 26000, actualRevenue: 25500, budgetFuel: 4800, actualFuel: 5100, budgetTolls: 850, actualTolls: 850 },
     ]
   },
   '2': { // Master Builders - Construction
     monthly: {
-      '2025-01': { revenue: 4100000, materials: 1120000, subcontractors: 695000, siteLabour: 545000, equipmentHire: 248000, plantFuel: 108000, siteCosts: 68000, scaffolding: 52000, concrete: 285000, depreciation: 152000, siteServices: 37000, healthSafety: 34000, qualityControl: 22000, insurance: 80000, permits: 18000, adminSalaries: 155000, officeRental: 40000, professional: 62000, bankCharges: 7200, other: 25000 },
-      '2025-02': { revenue: 3950000, materials: 1080000, subcontractors: 750000, siteLabour: 535000, equipmentHire: 242000, plantFuel: 105000, siteCosts: 75000, scaffolding: 58000, concrete: 280000, depreciation: 152000, siteServices: 36000, healthSafety: 33000, qualityControl: 25000, insurance: 80000, permits: 22000, adminSalaries: 155000, officeRental: 40000, professional: 58000, bankCharges: 7800, other: 28000 },
-      '2025-03': { revenue: 4650000, materials: 1320000, subcontractors: 890000, siteLabour: 625000, equipmentHire: 285000, plantFuel: 128000, siteCosts: 92000, scaffolding: 68000, concrete: 345000, depreciation: 152000, siteServices: 45000, healthSafety: 42000, qualityControl: 30000, insurance: 80000, permits: 25000, adminSalaries: 155000, officeRental: 40000, professional: 72000, bankCharges: 8500, other: 35000 },
+      '2024-01': { revenue: 2852766, materials: 968880, subcontractors: 664462, siteLabour: 407617, equipmentHire: 198099, plantFuel: 81025, siteCosts: 63766, scaffolding: 43212, concrete: 212561, depreciation: 161183, siteServices: 31343, healthSafety: 27367, qualityControl: 19793, insurance: 75600, permits: 13914, adminSalaries: 164392, officeRental: 43826, professional: 47871, bankCharges: 6159, other: 23743 },
+      '2024-02': { revenue: 3594418, materials: 1040819, subcontractors: 694128, siteLabour: 484790, equipmentHire: 208188, plantFuel: 99699, siteCosts: 64342, scaffolding: 49421, concrete: 241440, depreciation: 151584, siteServices: 36355, healthSafety: 33400, qualityControl: 23762, insurance: 80926, permits: 13829, adminSalaries: 140151, officeRental: 40591, professional: 54899, bankCharges: 6909, other: 23233 },
+      '2024-03': { revenue: 3730829, materials: 1108429, subcontractors: 721376, siteLabour: 542229, equipmentHire: 211517, plantFuel: 107328, siteCosts: 74007, scaffolding: 54369, concrete: 266300, depreciation: 162995, siteServices: 38041, healthSafety: 29240, qualityControl: 24426, insurance: 87160, permits: 15535, adminSalaries: 149982, officeRental: 38802, professional: 56690, bankCharges: 7197, other: 27715 },
+      '2024-04': { revenue: 3402953, materials: 1175427, subcontractors: 770162, siteLabour: 593038, equipmentHire: 228180, plantFuel: 96467, siteCosts: 77058, scaffolding: 53420, concrete: 310065, depreciation: 144298, siteServices: 35386, healthSafety: 32803, qualityControl: 23405, insurance: 75965, permits: 16306, adminSalaries: 160605, officeRental: 42794, professional: 57710, bankCharges: 6780, other: 25832 },
+      '2024-05': { revenue: 4116807, materials: 1201698, subcontractors: 758285, siteLabour: 615281, equipmentHire: 268206, plantFuel: 104434, siteCosts: 81008, scaffolding: 66043, concrete: 300584, depreciation: 136270, siteServices: 41684, healthSafety: 34467, qualityControl: 27623, insurance: 78355, permits: 17797, adminSalaries: 142613, officeRental: 41421, professional: 58209, bankCharges: 8156, other: 29090 },
+      '2024-06': { revenue: 3487416, materials: 1079184, subcontractors: 817186, siteLabour: 521053, equipmentHire: 235255, plantFuel: 107537, siteCosts: 73027, scaffolding: 56490, concrete: 284724, depreciation: 147185, siteServices: 40127, healthSafety: 32761, qualityControl: 26572, insurance: 87969, permits: 16569, adminSalaries: 140723, officeRental: 38062, professional: 58387, bankCharges: 6952, other: 29405 },
+      '2024-07': { revenue: 3338988, materials: 1039120, subcontractors: 691878, siteLabour: 459156, equipmentHire: 231064, plantFuel: 87214, siteCosts: 74595, scaffolding: 56241, concrete: 251361, depreciation: 156664, siteServices: 33418, healthSafety: 31717, qualityControl: 22980, insurance: 83947, permits: 13973, adminSalaries: 145807, officeRental: 36535, professional: 52328, bankCharges: 6666, other: 24247 },
+      '2024-08': { revenue: 2995749, materials: 990069, subcontractors: 663613, siteLabour: 480897, equipmentHire: 192413, plantFuel: 95869, siteCosts: 67294, scaffolding: 46055, concrete: 241312, depreciation: 155634, siteServices: 29311, healthSafety: 29450, qualityControl: 19569, insurance: 72951, permits: 13565, adminSalaries: 160892, officeRental: 39629, professional: 54406, bankCharges: 6720, other: 22807 },
+      '2024-09': { revenue: 3690576, materials: 1132590, subcontractors: 662237, siteLabour: 535358, equipmentHire: 237075, plantFuel: 94598, siteCosts: 71446, scaffolding: 58360, concrete: 253074, depreciation: 153718, siteServices: 35049, healthSafety: 32914, qualityControl: 23583, insurance: 76461, permits: 14002, adminSalaries: 142164, officeRental: 40679, professional: 49856, bankCharges: 6777, other: 25850 },
+      '2024-10': { revenue: 3460078, materials: 1041265, subcontractors: 814853, siteLabour: 560477, equipmentHire: 234776, plantFuel: 106765, siteCosts: 68344, scaffolding: 53564, concrete: 266410, depreciation: 161233, siteServices: 37238, healthSafety: 30825, qualityControl: 23353, insurance: 81122, permits: 16826, adminSalaries: 153694, officeRental: 41716, professional: 60401, bankCharges: 7084, other: 29580 },
+      '2024-11': { revenue: 4022708, materials: 1185856, subcontractors: 824735, siteLabour: 615236, equipmentHire: 268174, plantFuel: 118276, siteCosts: 80496, scaffolding: 64430, concrete: 280683, depreciation: 153314, siteServices: 41317, healthSafety: 37044, qualityControl: 23841, insurance: 77947, permits: 15688, adminSalaries: 167452, officeRental: 42907, professional: 59067, bankCharges: 7172, other: 31490 },
+      '2024-12': { revenue: 3002817, materials: 885078, subcontractors: 552158, siteLabour: 447055, equipmentHire: 204459, plantFuel: 80330, siteCosts: 60984, scaffolding: 47357, concrete: 205217, depreciation: 150109, siteServices: 26478, healthSafety: 26670, qualityControl: 19719, insurance: 74320, permits: 11811, adminSalaries: 143323, officeRental: 41860, professional: 43590, bankCharges: 6079, other: 23728 },
+      '2025-01': { revenue: 3065347, materials: 873617, subcontractors: 643660, siteLabour: 472581, equipmentHire: 190775, plantFuel: 77131, siteCosts: 60735, scaffolding: 48602, concrete: 217546, depreciation: 160884, siteServices: 29762, healthSafety: 27599, qualityControl: 20162, insurance: 74584, permits: 13928, adminSalaries: 161799, officeRental: 37311, professional: 47367, bankCharges: 5991, other: 21870 },
+      '2025-02': { revenue: 3788567, materials: 928423, subcontractors: 724230, siteLabour: 493936, equipmentHire: 211245, plantFuel: 102042, siteCosts: 68392, scaffolding: 47064, concrete: 248597, depreciation: 159980, siteServices: 31001, healthSafety: 28742, qualityControl: 24096, insurance: 84564, permits: 13523, adminSalaries: 142914, officeRental: 43240, professional: 56258, bankCharges: 7230, other: 24537 },
+      '2025-03': { revenue: 3953914, materials: 1031327, subcontractors: 666665, siteLabour: 518232, equipmentHire: 220626, plantFuel: 102729, siteCosts: 66157, scaffolding: 59573, concrete: 253874, depreciation: 138829, siteServices: 34725, healthSafety: 32314, qualityControl: 25630, insurance: 81061, permits: 15721, adminSalaries: 170050, officeRental: 38489, professional: 58867, bankCharges: 6634, other: 24848 },
+      '2025-04': { revenue: 4292292, materials: 1101336, subcontractors: 717827, siteLabour: 521368, equipmentHire: 271192, plantFuel: 113007, siteCosts: 79375, scaffolding: 60856, concrete: 274027, depreciation: 156944, siteServices: 39451, healthSafety: 34247, qualityControl: 26940, insurance: 76741, permits: 14604, adminSalaries: 152982, officeRental: 41204, professional: 61904, bankCharges: 7079, other: 30440 },
+      '2025-05': { revenue: 4171903, materials: 1167544, subcontractors: 847537, siteLabour: 609462, equipmentHire: 244987, plantFuel: 99803, siteCosts: 78951, scaffolding: 57035, concrete: 289962, depreciation: 146378, siteServices: 40461, healthSafety: 36159, qualityControl: 25852, insurance: 86279, permits: 16797, adminSalaries: 143958, officeRental: 40151, professional: 57357, bankCharges: 8092, other: 28555 },
+      '2025-06': { revenue: 3605378, materials: 1142137, subcontractors: 706209, siteLabour: 537925, equipmentHire: 267236, plantFuel: 108939, siteCosts: 72340, scaffolding: 56920, concrete: 257702, depreciation: 154393, siteServices: 33819, healthSafety: 31208, qualityControl: 27241, insurance: 85641, permits: 16211, adminSalaries: 159155, officeRental: 43323, professional: 57489, bankCharges: 8069, other: 30344 },
+      '2025-07': { revenue: 3496284, materials: 943216, subcontractors: 617783, siteLabour: 465839, equipmentHire: 204521, plantFuel: 94819, siteCosts: 72863, scaffolding: 50192, concrete: 249301, depreciation: 150321, siteServices: 31683, healthSafety: 27961, qualityControl: 22755, insurance: 77483, permits: 14623, adminSalaries: 162880, officeRental: 38640, professional: 56012, bankCharges: 6983, other: 25471 },
+      '2025-08': { revenue: 3392529, materials: 980493, subcontractors: 666602, siteLabour: 485876, equipmentHire: 196487, plantFuel: 90453, siteCosts: 65610, scaffolding: 53887, concrete: 244435, depreciation: 147874, siteServices: 29674, healthSafety: 30908, qualityControl: 20288, insurance: 80975, permits: 12510, adminSalaries: 167609, officeRental: 41843, professional: 49577, bankCharges: 6650, other: 24390 },
+      '2025-09': { revenue: 3433064, materials: 1099552, subcontractors: 656724, siteLabour: 500613, equipmentHire: 233995, plantFuel: 101251, siteCosts: 67059, scaffolding: 54624, concrete: 258764, depreciation: 144495, siteServices: 34850, healthSafety: 33032, qualityControl: 24803, insurance: 82643, permits: 14999, adminSalaries: 166453, officeRental: 40607, professional: 54445, bankCharges: 7393, other: 27299 },
+      '2025-10': { revenue: 3841707, materials: 994723, subcontractors: 736085, siteLabour: 535638, equipmentHire: 246017, plantFuel: 110788, siteCosts: 74178, scaffolding: 53289, concrete: 275397, depreciation: 141639, siteServices: 36270, healthSafety: 35662, qualityControl: 24286, insurance: 76271, permits: 15390, adminSalaries: 160874, officeRental: 37147, professional: 60492, bankCharges: 8001, other: 26528 },
+      '2025-11': { revenue: 4318628, materials: 1245498, subcontractors: 714755, siteLabour: 581975, equipmentHire: 268076, plantFuel: 108633, siteCosts: 84255, scaffolding: 63740, concrete: 311113, depreciation: 154200, siteServices: 35446, healthSafety: 35137, qualityControl: 25303, insurance: 87820, permits: 15951, adminSalaries: 169939, officeRental: 43738, professional: 64327, bankCharges: 8223, other: 29312 },
+      '2025-12': { revenue: 3317834, materials: 848861, subcontractors: 568472, siteLabour: 437890, equipmentHire: 204177, plantFuel: 78659, siteCosts: 62777, scaffolding: 42351, concrete: 236229, depreciation: 141891, siteServices: 25898, healthSafety: 23940, qualityControl: 18055, insurance: 73877, permits: 11425, adminSalaries: 141055, officeRental: 37856, professional: 43044, bankCharges: 6312, other: 22018 }
     },
     byProject: {
       'PRJ-001': { revenue: 5200000, materials: 1450000, subcontractors: 980000, labour: 720000, equipment: 345000, depreciation: 210000 },
@@ -617,9 +770,30 @@ const initialActuals = {
   },
   '3': { // Excel Academy - Education
     monthly: {
-      '2025-01': { revenue: 980000, academicSalaries: 350000, supportStaff: 155000, learningMaterials: 52000, examinations: 32000, studentServices: 28000, practicals: 41000, depreciation: 38000, facilities: 46000, utilities: 25000, security: 24000, cleaning: 14500, itInfrastructure: 52000, accreditation: 15500, adminSalaries: 77000, marketing: 28000, insurance: 18500, bankCharges: 3600, other: 13500 },
-      '2025-02': { revenue: 1150000, academicSalaries: 350000, supportStaff: 155000, learningMaterials: 68000, examinations: 42000, studentServices: 38000, practicals: 52000, depreciation: 38000, facilities: 55000, utilities: 31000, security: 24000, cleaning: 17000, itInfrastructure: 62000, accreditation: 16500, adminSalaries: 77000, marketing: 42000, insurance: 18500, bankCharges: 4200, other: 18000 },
-      '2025-03': { revenue: 1080000, academicSalaries: 350000, supportStaff: 155000, learningMaterials: 58000, examinations: 38000, studentServices: 32000, practicals: 48000, depreciation: 38000, facilities: 50000, utilities: 28000, security: 24000, cleaning: 15500, itInfrastructure: 58000, accreditation: 16000, adminSalaries: 77000, marketing: 35000, insurance: 18500, bankCharges: 3900, other: 15500 },
+      '2024-01': { revenue: 1089903, academicSalaries: 317891, supportStaff: 157617, learningMaterials: 57725, examinations: 37549, studentServices: 34247, practicals: 44172, depreciation: 35650, facilities: 49702, utilities: 29609, security: 25867, cleaning: 15082, itInfrastructure: 58923, accreditation: 16906, adminSalaries: 81110, marketing: 32512, insurance: 18198, bankCharges: 3784, other: 17248 },
+      '2024-02': { revenue: 933946, academicSalaries: 341552, supportStaff: 140917, learningMaterials: 61562, examinations: 39600, studentServices: 36859, practicals: 43650, depreciation: 37374, facilities: 52423, utilities: 26863, security: 21715, cleaning: 14262, itInfrastructure: 61984, accreditation: 16593, adminSalaries: 82439, marketing: 32429, insurance: 16792, bankCharges: 4347, other: 15133 },
+      '2024-03': { revenue: 953078, academicSalaries: 320720, supportStaff: 160288, learningMaterials: 55402, examinations: 33774, studentServices: 29189, practicals: 47749, depreciation: 33758, facilities: 52247, utilities: 25399, security: 23000, cleaning: 15055, itInfrastructure: 53688, accreditation: 15347, adminSalaries: 75319, marketing: 29297, insurance: 20223, bankCharges: 3592, other: 14074 },
+      '2024-04': { revenue: 898719, academicSalaries: 376303, supportStaff: 166595, learningMaterials: 56465, examinations: 30388, studentServices: 27602, practicals: 41149, depreciation: 40884, facilities: 46918, utilities: 25140, security: 26084, cleaning: 14271, itInfrastructure: 53246, accreditation: 14776, adminSalaries: 70955, marketing: 27375, insurance: 17574, bankCharges: 3845, other: 12964 },
+      '2024-05': { revenue: 913930, academicSalaries: 368861, supportStaff: 169863, learningMaterials: 48256, examinations: 31605, studentServices: 29116, practicals: 35746, depreciation: 33895, facilities: 42917, utilities: 22574, security: 22863, cleaning: 13137, itInfrastructure: 52398, accreditation: 13752, adminSalaries: 80165, marketing: 26275, insurance: 19541, bankCharges: 3291, other: 12475 },
+      '2024-06': { revenue: 861752, academicSalaries: 345761, supportStaff: 167688, learningMaterials: 47184, examinations: 32449, studentServices: 25060, practicals: 40215, depreciation: 33753, facilities: 38631, utilities: 24082, security: 22435, cleaning: 13174, itInfrastructure: 45237, accreditation: 12893, adminSalaries: 78233, marketing: 29186, insurance: 17721, bankCharges: 3211, other: 13037 },
+      '2024-07': { revenue: 714510, academicSalaries: 334106, supportStaff: 153687, learningMaterials: 50862, examinations: 27574, studentServices: 25539, practicals: 32571, depreciation: 36733, facilities: 40231, utilities: 23659, security: 21654, cleaning: 11438, itInfrastructure: 45363, accreditation: 12833, adminSalaries: 70217, marketing: 26768, insurance: 19871, bankCharges: 2852, other: 10986 },
+      '2024-08': { revenue: 736278, academicSalaries: 371177, supportStaff: 155370, learningMaterials: 43813, examinations: 27785, studentServices: 23803, practicals: 38629, depreciation: 36943, facilities: 36608, utilities: 22923, security: 24893, cleaning: 12211, itInfrastructure: 40611, accreditation: 12323, adminSalaries: 72307, marketing: 28609, insurance: 19310, bankCharges: 2822, other: 12956 },
+      '2024-09': { revenue: 814722, academicSalaries: 319545, supportStaff: 168899, learningMaterials: 50818, examinations: 32843, studentServices: 33300, practicals: 37653, depreciation: 40314, facilities: 43732, utilities: 24041, security: 23674, cleaning: 13256, itInfrastructure: 48708, accreditation: 13643, adminSalaries: 70150, marketing: 32324, insurance: 19689, bankCharges: 3673, other: 14676 },
+      '2024-10': { revenue: 911120, academicSalaries: 355052, supportStaff: 165259, learningMaterials: 56476, examinations: 36865, studentServices: 34337, practicals: 50244, depreciation: 37085, facilities: 53811, utilities: 29291, security: 25696, cleaning: 16187, itInfrastructure: 62884, accreditation: 15674, adminSalaries: 69518, marketing: 33831, insurance: 18269, bankCharges: 3729, other: 15172 },
+      '2024-11': { revenue: 1045874, academicSalaries: 323731, supportStaff: 150078, learningMaterials: 56586, examinations: 38028, studentServices: 32091, practicals: 50676, depreciation: 35618, facilities: 55404, utilities: 26522, security: 25398, cleaning: 16848, itInfrastructure: 62375, accreditation: 15295, adminSalaries: 80679, marketing: 33251, insurance: 16729, bankCharges: 4116, other: 17761 },
+      '2024-12': { revenue: 670857, academicSalaries: 366094, supportStaff: 140112, learningMaterials: 46396, examinations: 28047, studentServices: 24758, practicals: 33767, depreciation: 37383, facilities: 38695, utilities: 21062, security: 24489, cleaning: 10315, itInfrastructure: 43806, accreditation: 10677, adminSalaries: 72209, marketing: 25240, insurance: 19567, bankCharges: 3116, other: 11866 },
+      '2025-01': { revenue: 1242482, academicSalaries: 381507, supportStaff: 160047, learningMaterials: 65905, examinations: 37482, studentServices: 31764, practicals: 46230, depreciation: 34941, facilities: 55162, utilities: 27210, security: 25757, cleaning: 15683, itInfrastructure: 56769, accreditation: 17807, adminSalaries: 73748, marketing: 38029, insurance: 19474, bankCharges: 3957, other: 17359 },
+      '2025-02': { revenue: 1141231, academicSalaries: 333177, supportStaff: 139994, learningMaterials: 59767, examinations: 39427, studentServices: 36279, practicals: 45829, depreciation: 35410, facilities: 52063, utilities: 25515, security: 24054, cleaning: 14559, itInfrastructure: 57080, accreditation: 15273, adminSalaries: 69894, marketing: 33854, insurance: 16696, bankCharges: 3702, other: 15484 },
+      '2025-03': { revenue: 1122896, academicSalaries: 327086, supportStaff: 140494, learningMaterials: 55413, examinations: 35948, studentServices: 29884, practicals: 43484, depreciation: 34739, facilities: 50799, utilities: 24618, security: 23266, cleaning: 13739, itInfrastructure: 50698, accreditation: 16284, adminSalaries: 81404, marketing: 35156, insurance: 19102, bankCharges: 3938, other: 15725 },
+      '2025-04': { revenue: 1031711, academicSalaries: 317054, supportStaff: 163076, learningMaterials: 53526, examinations: 34266, studentServices: 27601, practicals: 40755, depreciation: 35315, facilities: 48477, utilities: 24759, security: 22319, cleaning: 15665, itInfrastructure: 51466, accreditation: 15698, adminSalaries: 84552, marketing: 30314, insurance: 16761, bankCharges: 3409, other: 13650 },
+      '2025-05': { revenue: 1032682, academicSalaries: 341985, supportStaff: 155854, learningMaterials: 56092, examinations: 34478, studentServices: 31319, practicals: 41535, depreciation: 33874, facilities: 46237, utilities: 23538, security: 23201, cleaning: 13402, itInfrastructure: 53408, accreditation: 13582, adminSalaries: 80472, marketing: 28585, insurance: 19562, bankCharges: 3499, other: 13820 },
+      '2025-06': { revenue: 950920, academicSalaries: 339663, supportStaff: 152073, learningMaterials: 53364, examinations: 31940, studentServices: 24876, practicals: 40905, depreciation: 40792, facilities: 41871, utilities: 23624, security: 23075, cleaning: 13883, itInfrastructure: 44295, accreditation: 12071, adminSalaries: 73045, marketing: 28110, insurance: 17122, bankCharges: 3017, other: 12641 },
+      '2025-07': { revenue: 833017, academicSalaries: 380183, supportStaff: 139965, learningMaterials: 45443, examinations: 27943, studentServices: 27324, practicals: 36835, depreciation: 33825, facilities: 40337, utilities: 22891, security: 24248, cleaning: 13128, itInfrastructure: 46205, accreditation: 12128, adminSalaries: 75284, marketing: 23844, insurance: 16912, bankCharges: 3039, other: 11368 },
+      '2025-08': { revenue: 844029, academicSalaries: 350984, supportStaff: 143921, learningMaterials: 44588, examinations: 26808, studentServices: 24901, practicals: 34610, depreciation: 39508, facilities: 38657, utilities: 23134, security: 22849, cleaning: 11103, itInfrastructure: 45580, accreditation: 12722, adminSalaries: 80963, marketing: 25260, insurance: 17020, bankCharges: 3099, other: 11132 },
+      '2025-09': { revenue: 949792, academicSalaries: 380644, supportStaff: 149360, learningMaterials: 60037, examinations: 31526, studentServices: 32232, practicals: 42989, depreciation: 40254, facilities: 45503, utilities: 26511, security: 22044, cleaning: 14216, itInfrastructure: 55390, accreditation: 13480, adminSalaries: 72189, marketing: 31866, insurance: 16712, bankCharges: 3533, other: 14935 },
+      '2025-10': { revenue: 1099556, academicSalaries: 341818, supportStaff: 142410, learningMaterials: 55379, examinations: 33709, studentServices: 35867, practicals: 46825, depreciation: 37005, facilities: 52895, utilities: 27427, security: 24262, cleaning: 16347, itInfrastructure: 58129, accreditation: 16307, adminSalaries: 73901, marketing: 32833, insurance: 19297, bankCharges: 4170, other: 15072 },
+      '2025-11': { revenue: 1234109, academicSalaries: 364298, supportStaff: 146505, learningMaterials: 58363, examinations: 39518, studentServices: 35584, practicals: 51793, depreciation: 34356, facilities: 52553, utilities: 27288, security: 25927, cleaning: 16090, itInfrastructure: 56678, accreditation: 17826, adminSalaries: 72721, marketing: 37489, insurance: 16878, bankCharges: 3788, other: 17255 },
+      '2025-12': { revenue: 744336, academicSalaries: 354047, supportStaff: 156087, learningMaterials: 43784, examinations: 23834, studentServices: 21675, practicals: 30021, depreciation: 36444, facilities: 36574, utilities: 18862, security: 26263, cleaning: 11880, itInfrastructure: 42472, accreditation: 11986, adminSalaries: 72708, marketing: 22879, insurance: 18787, bankCharges: 2823, other: 10267 }
     },
     byProgram: {
       'BBA': { revenue: 1650000, academicSalaries: 540000, materials: 92000, practicals: 55000, depreciation: 62000 },
@@ -629,22 +803,49 @@ const initialActuals = {
   }
 };
 
-// Mock Data - Budgeted Revenue (per trip, per month, per truck)
+// Mock Data - Budgeted Revenue (per trip, per month, per truck) - FY2024 & FY2025
 const initialBudgetedRevenue = {
   '1': { // Transhaul - Haulage
     monthly: {
+      '2024-01': { totalRevenue: 310000, tripsPlanned: 38, avgRevenuePerTrip: 8158, target: 330000 },
+      '2024-02': { totalRevenue: 325000, tripsPlanned: 40, avgRevenuePerTrip: 8125, target: 345000 },
+      '2024-03': { totalRevenue: 340000, tripsPlanned: 42, avgRevenuePerTrip: 8095, target: 360000 },
+      '2024-04': { totalRevenue: 355000, tripsPlanned: 43, avgRevenuePerTrip: 8256, target: 375000 },
+      '2024-05': { totalRevenue: 365000, tripsPlanned: 44, avgRevenuePerTrip: 8295, target: 385000 },
+      '2024-06': { totalRevenue: 350000, tripsPlanned: 42, avgRevenuePerTrip: 8333, target: 370000 },
+      '2024-07': { totalRevenue: 330000, tripsPlanned: 40, avgRevenuePerTrip: 8250, target: 350000 },
+      '2024-08': { totalRevenue: 345000, tripsPlanned: 42, avgRevenuePerTrip: 8214, target: 365000 },
+      '2024-09': { totalRevenue: 360000, tripsPlanned: 44, avgRevenuePerTrip: 8182, target: 380000 },
+      '2024-10': { totalRevenue: 375000, tripsPlanned: 46, avgRevenuePerTrip: 8152, target: 395000 },
+      '2024-11': { totalRevenue: 345000, tripsPlanned: 42, avgRevenuePerTrip: 8214, target: 365000 },
+      '2024-12': { totalRevenue: 300000, tripsPlanned: 36, avgRevenuePerTrip: 8333, target: 320000 },
       '2025-01': { totalRevenue: 380000, tripsPlanned: 45, avgRevenuePerTrip: 8444, target: 400000 },
       '2025-02': { totalRevenue: 400000, tripsPlanned: 48, avgRevenuePerTrip: 8333, target: 420000 },
       '2025-03': { totalRevenue: 420000, tripsPlanned: 52, avgRevenuePerTrip: 8077, target: 450000 },
+      '2025-04': { totalRevenue: 440000, tripsPlanned: 54, avgRevenuePerTrip: 8148, target: 465000 },
+      '2025-05': { totalRevenue: 460000, tripsPlanned: 56, avgRevenuePerTrip: 8214, target: 485000 },
+      '2025-06': { totalRevenue: 445000, tripsPlanned: 54, avgRevenuePerTrip: 8241, target: 470000 },
+      '2025-07': { totalRevenue: 420000, tripsPlanned: 51, avgRevenuePerTrip: 8235, target: 445000 },
+      '2025-08': { totalRevenue: 435000, tripsPlanned: 53, avgRevenuePerTrip: 8208, target: 460000 },
+      '2025-09': { totalRevenue: 455000, tripsPlanned: 55, avgRevenuePerTrip: 8273, target: 480000 },
+      '2025-10': { totalRevenue: 475000, tripsPlanned: 58, avgRevenuePerTrip: 8190, target: 500000 },
+      '2025-11': { totalRevenue: 440000, tripsPlanned: 53, avgRevenuePerTrip: 8302, target: 465000 },
+      '2025-12': { totalRevenue: 380000, tripsPlanned: 46, avgRevenuePerTrip: 8261, target: 400000 },
     },
     byTruck: {
       'TA-001': {
         truckName: 'UD Quester GWE 420 (TA-001)',
         driver: 'John Nkosi',
         monthly: {
+          '2024-01': { revenue: 128000, trips: 15, avgPerTrip: 8533, target: 135000 },
+          '2024-06': { revenue: 140000, trips: 17, avgPerTrip: 8235, target: 148000 },
+          '2024-12': { revenue: 120000, trips: 14, avgPerTrip: 8571, target: 128000 },
           '2025-01': { revenue: 152000, trips: 18, avgPerTrip: 8444, target: 160000 },
           '2025-02': { revenue: 160000, trips: 19, avgPerTrip: 8421, target: 168000 },
           '2025-03': { revenue: 168000, trips: 21, avgPerTrip: 8000, target: 180000 },
+          '2025-06': { revenue: 178000, trips: 22, avgPerTrip: 8091, target: 188000 },
+          '2025-09': { revenue: 182000, trips: 22, avgPerTrip: 8273, target: 192000 },
+          '2025-12': { revenue: 152000, trips: 18, avgPerTrip: 8444, target: 160000 },
         },
         annual: { revenue: 1800000, trips: 210, avgPerTrip: 8571, target: 1920000 },
       },
@@ -652,9 +853,15 @@ const initialBudgetedRevenue = {
         truckName: 'UD Quester GWE 420 (TA-002)',
         driver: 'Peter Dlamini',
         monthly: {
+          '2024-01': { revenue: 105000, trips: 13, avgPerTrip: 8077, target: 112000 },
+          '2024-06': { revenue: 115000, trips: 14, avgPerTrip: 8214, target: 122000 },
+          '2024-12': { revenue: 98000, trips: 12, avgPerTrip: 8167, target: 105000 },
           '2025-01': { revenue: 125000, trips: 15, avgPerTrip: 8333, target: 132000 },
           '2025-02': { revenue: 132000, trips: 16, avgPerTrip: 8250, target: 140000 },
           '2025-03': { revenue: 140000, trips: 17, avgPerTrip: 8235, target: 150000 },
+          '2025-06': { revenue: 148000, trips: 18, avgPerTrip: 8222, target: 156000 },
+          '2025-09': { revenue: 152000, trips: 18, avgPerTrip: 8444, target: 160000 },
+          '2025-12': { revenue: 125000, trips: 15, avgPerTrip: 8333, target: 132000 },
         },
         annual: { revenue: 1500000, trips: 180, avgPerTrip: 8333, target: 1600000 },
       },
@@ -662,9 +869,15 @@ const initialBudgetedRevenue = {
         truckName: 'Mercedes-Benz Actros 2645 (TA-003)',
         driver: 'Sipho Mbeki',
         monthly: {
+          '2024-01': { revenue: 85000, trips: 10, avgPerTrip: 8500, target: 90000 },
+          '2024-06': { revenue: 92000, trips: 11, avgPerTrip: 8364, target: 98000 },
+          '2024-12': { revenue: 80000, trips: 9, avgPerTrip: 8889, target: 85000 },
           '2025-01': { revenue: 103000, trips: 12, avgPerTrip: 8583, target: 108000 },
           '2025-02': { revenue: 108000, trips: 13, avgPerTrip: 8308, target: 112000 },
           '2025-03': { revenue: 112000, trips: 14, avgPerTrip: 8000, target: 120000 },
+          '2025-06': { revenue: 119000, trips: 14, avgPerTrip: 8500, target: 126000 },
+          '2025-09': { revenue: 121000, trips: 15, avgPerTrip: 8067, target: 128000 },
+          '2025-12': { revenue: 103000, trips: 12, avgPerTrip: 8583, target: 108000 },
         },
         annual: { revenue: 1200000, trips: 150, avgPerTrip: 8000, target: 1300000 },
       },
@@ -690,9 +903,17 @@ const initialBudgetedRevenue = {
   },
   '2': { // Master Builders - Construction
     monthly: {
+      '2024-01': { totalRevenue: 3200000, projectsActive: 3, avgRevenuePerProject: 1066667, target: 3400000 },
+      '2024-04': { totalRevenue: 3600000, projectsActive: 3, avgRevenuePerProject: 1200000, target: 3800000 },
+      '2024-07': { totalRevenue: 3400000, projectsActive: 3, avgRevenuePerProject: 1133333, target: 3600000 },
+      '2024-10': { totalRevenue: 3700000, projectsActive: 3, avgRevenuePerProject: 1233333, target: 3900000 },
       '2025-01': { totalRevenue: 3800000, projectsActive: 3, avgRevenuePerProject: 1266667, target: 4000000 },
       '2025-02': { totalRevenue: 4200000, projectsActive: 3, avgRevenuePerProject: 1400000, target: 4500000 },
       '2025-03': { totalRevenue: 4500000, projectsActive: 3, avgRevenuePerProject: 1500000, target: 4800000 },
+      '2025-04': { totalRevenue: 4600000, projectsActive: 3, avgRevenuePerProject: 1533333, target: 4900000 },
+      '2025-06': { totalRevenue: 4400000, projectsActive: 3, avgRevenuePerProject: 1466667, target: 4700000 },
+      '2025-09': { totalRevenue: 4700000, projectsActive: 3, avgRevenuePerProject: 1566667, target: 5000000 },
+      '2025-12': { totalRevenue: 3500000, projectsActive: 2, avgRevenuePerProject: 1750000, target: 3800000 },
     },
     byTruck: {},
     byTrip: [],
@@ -700,9 +921,17 @@ const initialBudgetedRevenue = {
   },
   '3': { // Excel Academy - Education
     monthly: {
+      '2024-01': { totalRevenue: 900000, programsActive: 3, avgRevenuePerProgram: 300000, target: 950000 },
+      '2024-04': { totalRevenue: 850000, programsActive: 3, avgRevenuePerProgram: 283333, target: 900000 },
+      '2024-07': { totalRevenue: 720000, programsActive: 3, avgRevenuePerProgram: 240000, target: 780000 },
+      '2024-10': { totalRevenue: 950000, programsActive: 3, avgRevenuePerProgram: 316667, target: 1000000 },
       '2025-01': { totalRevenue: 1050000, programsActive: 3, avgRevenuePerProgram: 350000, target: 1100000 },
       '2025-02': { totalRevenue: 1100000, programsActive: 3, avgRevenuePerProgram: 366667, target: 1150000 },
       '2025-03': { totalRevenue: 1150000, programsActive: 3, avgRevenuePerProgram: 383333, target: 1200000 },
+      '2025-04': { totalRevenue: 1080000, programsActive: 3, avgRevenuePerProgram: 360000, target: 1130000 },
+      '2025-06': { totalRevenue: 950000, programsActive: 3, avgRevenuePerProgram: 316667, target: 1000000 },
+      '2025-09': { totalRevenue: 1100000, programsActive: 3, avgRevenuePerProgram: 366667, target: 1150000 },
+      '2025-12': { totalRevenue: 850000, programsActive: 3, avgRevenuePerProgram: 283333, target: 900000 },
     },
     byTruck: {},
     byTrip: [],
@@ -849,9 +1078,22 @@ const initialAssets = {
 // Year-over-Year Data
 const yoyData = {
   '1': {
+    '2023': { revenue: 3200000, expenses: 2850000, profit: 350000 },
     '2024': { revenue: 3800000, expenses: 3200000, profit: 600000 },
     '2025': { revenue: 4500000, expenses: 3650000, profit: 850000 }, // Budget
     '2025-YTD': { revenue: 1283320, expenses: 1098690, profit: 184630 }, // Actual YTD
+  },
+  '2': {
+    '2023': { revenue: 38000000, expenses: 34500000, profit: 3500000 },
+    '2024': { revenue: 42000000, expenses: 37800000, profit: 4200000 },
+    '2025': { revenue: 45000000, expenses: 40200000, profit: 4800000 },
+    '2025-YTD': { revenue: 12700000, expenses: 11450000, profit: 1250000 },
+  },
+  '3': {
+    '2023': { revenue: 10500000, expenses: 9200000, profit: 1300000 },
+    '2024': { revenue: 11800000, expenses: 10100000, profit: 1700000 },
+    '2025': { revenue: 12500000, expenses: 10800000, profit: 1700000 },
+    '2025-YTD': { revenue: 3210000, expenses: 2850000, profit: 360000 },
   }
 };
 
@@ -1409,6 +1651,7 @@ const ExportButtons = ({ onPDF, onExcel, onPrintWithCharts }) => (
 const getModuleIcon = (module) => {
   const icons = {
     dashboard: <Icons.Home />, fleet: <Icons.Truck />, jobs: <Icons.Clipboard />,
+    'cost-analysis': <Icons.Calculator />,
     actuals: <Icons.Wallet />, budgets: <Icons.Target />, 'budgeted-revenue': <Icons.DollarSign />,
     reports: <Icons.BarChart />,
     projects: <Icons.Building />, programs: <Icons.GraduationCap />,
@@ -1744,6 +1987,19 @@ export default function MultiCompanyJobCosting() {
         />;
       case 'reports':
         return <ReportsModule company={selectedCompany} config={config} budgets={budgets} actuals={actuals} yoyData={yoyData} assets={assets[selectedCompany.id] || []} categories={categories} />;
+      case 'cost-analysis':
+        return <CostAnalysisModule
+          company={selectedCompany}
+          config={config}
+          jobs={jobs[selectedCompany.id]?.jobs || []}
+          fleet={fleet[selectedCompany.id] || { trucks: [], trailers: [] }}
+          actuals={actuals}
+          budgets={budgets}
+        />;
+      case 'projects':
+        return <ProjectsModule company={selectedCompany} config={config} budgets={budgets} actuals={actuals} categories={categories} />;
+      case 'programs':
+        return <ProgramsModule company={selectedCompany} config={config} budgets={budgets} actuals={actuals} categories={categories} />;
       default:
         return (
           <div className="bg-white rounded-xl border shadow-sm p-8 text-center">
@@ -1844,7 +2100,7 @@ export default function MultiCompanyJobCosting() {
                       activeModule === module ? 'bg-blue-50 text-blue-700 font-medium' : 'text-slate-600 hover:bg-slate-50'
                     }`}>
                     {getModuleIcon(module)}
-                    <span className="capitalize">{module === 'budgeted-revenue' ? 'Budgeted Revenue' : module}</span>
+                    <span className="capitalize">{module === 'budgeted-revenue' ? 'Budgeted Revenue' : module === 'cost-analysis' ? 'Cost Analysis' : module}</span>
                   </button>
                 ))}
               </div>
@@ -2032,86 +2288,139 @@ export default function MultiCompanyJobCosting() {
 
 // Dashboard Module
 const DashboardModule = ({ company, config, budgets, actuals, categories }) => {
+  const [dashMonth, setDashMonth] = useState('2025-01');
   const companyBudget = budgets[company.id] || {};
   const companyActuals = actuals[company.id] || {};
-  const dashboardBudget = companyBudget.monthly?.['2025-01'] || {};
-  const dashboardActuals = companyActuals.monthly?.['2025-01'] || {};
-  
+  const dashboardBudget = companyBudget.monthly?.[dashMonth] || {};
+  const dashboardActuals = companyActuals.monthly?.[dashMonth] || {};
+
   const budgetRevenue = dashboardBudget.revenue || 0;
   const actualRevenue = dashboardActuals.revenue || 0;
   const budgetExpenses = Object.entries(dashboardBudget).filter(([k]) => k !== 'revenue').reduce((s, [, v]) => s + v, 0);
   const actualExpenses = Object.entries(dashboardActuals).filter(([k]) => k !== 'revenue').reduce((s, [, v]) => s + v, 0);
-  
+  const budgetProfit = budgetRevenue - budgetExpenses;
+  const actualProfit = actualRevenue - actualExpenses;
+  const profitMargin = actualRevenue > 0 ? (actualProfit / actualRevenue * 100) : 0;
+
+  // Monthly trend data (last 6 months from selected)
+  const trendMonths = (() => {
+    const allMonths = Object.keys(companyBudget.monthly || {}).sort();
+    const idx = allMonths.indexOf(dashMonth);
+    const start = Math.max(0, idx - 5);
+    return allMonths.slice(start, idx + 1);
+  })();
+
+  const trendData = trendMonths.map(m => {
+    const bud = companyBudget.monthly?.[m] || {};
+    const act = companyActuals.monthly?.[m] || {};
+    const bRev = bud.revenue || 0;
+    const aRev = act.revenue || 0;
+    const bExp = Object.entries(bud).filter(([k]) => k !== 'revenue').reduce((s, [, v]) => s + v, 0);
+    const aExp = Object.entries(act).filter(([k]) => k !== 'revenue').reduce((s, [, v]) => s + v, 0);
+    return {
+      month: new Date(m + '-01').toLocaleDateString('en-ZA', { month: 'short', year: '2-digit' }),
+      budgetRev: bRev, actualRev: aRev,
+      budgetProfit: bRev - bExp, actualProfit: aRev - aExp,
+    };
+  });
+
   // Get top 5 expense categories for this industry
   const topCategories = categories.slice(0, 5).map(cat => ({
     name: cat.name,
     budget: dashboardBudget[cat.id] || 0,
     actual: dashboardActuals[cat.id] || 0
   }));
-  
+
+  const monthLabel = getMonthLabel(dashMonth);
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-2xl font-bold text-slate-900">Dashboard</h2>
-          <p className="text-slate-500">{company.tradingAs || company.name} • January 2025</p>
+          <p className="text-slate-500">{company.tradingAs || company.name} • {monthLabel}</p>
         </div>
-        <button 
-          onClick={() => printWithCharts('dashboard-content', 'Dashboard Summary', company, 'January 2025')}
-          className="flex items-center gap-2 px-4 py-2 bg-purple-600 text-white rounded-lg text-sm font-medium hover:bg-purple-700">
-          <Icons.Printer />Print Dashboard
-        </button>
+        <div className="flex gap-3">
+          <MonthYearSelector value={dashMonth} onChange={e => setDashMonth(e.target.value)} />
+          <button
+            onClick={() => printWithCharts('dashboard-content', 'Dashboard Summary', company, monthLabel)}
+            className="flex items-center gap-2 px-4 py-2 bg-purple-600 text-white rounded-lg text-sm font-medium hover:bg-purple-700">
+            <Icons.Printer />Print
+          </button>
+        </div>
       </div>
 
       <div id="dashboard-content">
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+      {/* KPI Cards - Row 1 */}
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
         <KPICard title="Budget Revenue" value={`R ${budgetRevenue.toLocaleString()}`} icon={<Icons.Target />} color="blue" />
         <KPICard title="Actual Revenue" value={`R ${actualRevenue.toLocaleString()}`} icon={<Icons.DollarSign />} color="emerald" trend={budgetRevenue ? ((actualRevenue - budgetRevenue) / budgetRevenue * 100) : 0} trendLabel="vs budget" />
         <KPICard title="Budget Expenses" value={`R ${budgetExpenses.toLocaleString()}`} icon={<Icons.Target />} color="amber" />
         <KPICard title="Actual Expenses" value={`R ${actualExpenses.toLocaleString()}`} icon={<Icons.Wallet />} color="red" trend={budgetExpenses ? ((actualExpenses - budgetExpenses) / budgetExpenses * 100) : 0} trendLabel="vs budget" />
+        <KPICard title="Net Profit" value={`R ${actualProfit.toLocaleString()}`} icon={<Icons.TrendingUp />} color={actualProfit >= 0 ? 'emerald' : 'red'} trend={budgetProfit ? ((actualProfit - budgetProfit) / Math.abs(budgetProfit) * 100) : 0} trendLabel="vs budget" />
+        <KPICard title="Profit Margin" value={`${profitMargin.toFixed(1)}%`} icon={<Icons.Percent />} color="purple" />
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Budget vs Actual Bar Chart */}
         <div className="bg-white rounded-xl border p-6 chart-container">
-          <h3 className="font-semibold mb-4">Budget vs Actual - January 2025</h3>
+          <h3 className="font-semibold mb-4">Budget vs Actual - {monthLabel}</h3>
           <ResponsiveContainer width="100%" height={280}>
             <BarChart data={[
               { name: 'Revenue', budget: budgetRevenue, actual: actualRevenue },
               { name: 'Expenses', budget: budgetExpenses, actual: actualExpenses },
-              { name: 'Profit', budget: budgetRevenue - budgetExpenses, actual: actualRevenue - actualExpenses },
+              { name: 'Profit', budget: budgetProfit, actual: actualProfit },
             ]}>
               <CartesianGrid strokeDasharray="3 3" />
               <XAxis dataKey="name" />
               <YAxis tickFormatter={(v) => `R${(v/1000).toFixed(0)}k`} />
               <Tooltip formatter={(v) => `R ${v.toLocaleString()}`} />
               <Legend />
-              <Bar dataKey="budget" fill="#3b82f6" name="Budget" />
-              <Bar dataKey="actual" fill="#10b981" name="Actual" />
+              <Bar dataKey="budget" fill="#3b82f6" name="Budget" radius={[4,4,0,0]} />
+              <Bar dataKey="actual" fill="#10b981" name="Actual" radius={[4,4,0,0]} />
             </BarChart>
           </ResponsiveContainer>
         </div>
 
-        <div className="bg-white rounded-xl border p-6">
-          <h3 className="font-semibold mb-4">Top Expense Categories - Variance</h3>
-          <div className="space-y-3">
-            {topCategories.map(item => {
-              const variance = item.actual - item.budget;
-              const variancePct = item.budget ? (variance / item.budget * 100) : 0;
-              const isOver = variance > 0;
-              return (
-                <div key={item.name} className="flex items-center justify-between p-3 bg-slate-50 rounded-lg">
-                  <span className="font-medium text-sm">{item.name}</span>
-                  <div className="flex items-center gap-4">
-                    <span className="text-sm text-slate-500">B: R{item.budget.toLocaleString()}</span>
-                    <span className="text-sm">A: R{item.actual.toLocaleString()}</span>
-                    <span className={`text-sm font-bold ${isOver ? 'text-red-600' : 'text-emerald-600'}`}>
-                      {isOver ? '+' : ''}{variancePct.toFixed(1)}%
-                    </span>
+        {/* Revenue & Profit Trend */}
+        <div className="bg-white rounded-xl border p-6 chart-container">
+          <h3 className="font-semibold mb-4">Revenue & Profit Trend</h3>
+          <ResponsiveContainer width="100%" height={280}>
+            <ComposedChart data={trendData}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
+              <XAxis dataKey="month" tick={{ fontSize: 12 }} />
+              <YAxis tickFormatter={(v) => `R${(v/1000).toFixed(0)}k`} tick={{ fontSize: 12 }} />
+              <Tooltip formatter={(v) => `R ${v.toLocaleString()}`} />
+              <Legend />
+              <Bar dataKey="actualRev" name="Actual Revenue" fill="#10b981" radius={[4,4,0,0]} />
+              <Line type="monotone" dataKey="budgetRev" name="Budget Revenue" stroke="#3b82f6" strokeWidth={2} strokeDasharray="5 5" dot={{ fill: '#3b82f6' }} />
+              <Line type="monotone" dataKey="actualProfit" name="Actual Profit" stroke="#a855f7" strokeWidth={2} dot={{ fill: '#a855f7' }} />
+            </ComposedChart>
+          </ResponsiveContainer>
+        </div>
+      </div>
+
+      {/* Top Expense Variance */}
+      <div className="bg-white rounded-xl border p-6">
+        <h3 className="font-semibold mb-4">Top Expense Categories - Variance</h3>
+        <div className="grid grid-cols-1 md:grid-cols-5 gap-3">
+          {topCategories.map(item => {
+            const variance = item.actual - item.budget;
+            const variancePct = item.budget ? (variance / item.budget * 100) : 0;
+            const isOver = variance > 0;
+            return (
+              <div key={item.name} className="p-4 bg-slate-50 rounded-lg">
+                <p className="font-medium text-sm mb-2">{item.name}</p>
+                <div className="space-y-1">
+                  <div className="flex justify-between text-xs"><span className="text-slate-500">Budget</span><span>R {item.budget.toLocaleString()}</span></div>
+                  <div className="flex justify-between text-xs"><span className="text-slate-500">Actual</span><span>R {item.actual.toLocaleString()}</span></div>
+                  <div className={`flex justify-between text-xs font-bold ${isOver ? 'text-red-600' : 'text-emerald-600'}`}>
+                    <span>Variance</span><span>{isOver ? '+' : ''}{variancePct.toFixed(1)}%</span>
                   </div>
                 </div>
-              );
-            })}
-          </div>
+              </div>
+            );
+          })}
         </div>
       </div>
       </div>{/* End of dashboard-content */}
@@ -2926,12 +3235,8 @@ const ActualsModule = ({ company, config, actuals, setActuals, categories }) => 
           <p className="text-slate-500">Record actual expenses for {config.label}</p>
         </div>
         <div className="flex gap-3">
-          <Select value={selectedMonth} onChange={e => setSelectedMonth(e.target.value)}>
-            <option value="2025-01">January 2025</option>
-            <option value="2025-02">February 2025</option>
-            <option value="2025-03">March 2025</option>
-          </Select>
-          <ExportButtons 
+          <MonthYearSelector value={selectedMonth} onChange={e => setSelectedMonth(e.target.value)} />
+          <ExportButtons
             onPDF={() => {
               const headers = [
                 { key: 'category', label: 'Category', align: 'left' },
@@ -3160,7 +3465,7 @@ const BudgetedRevenueModule = ({ company, config, budgetedRevenue, setBudgetedRe
   // Filter trips by month and truck
   const filteredTrips = tripData.filter(trip => {
     const tripMonth = trip.date?.substring(0, 7);
-    const matchMonth = selectedMonth === 'annual' || tripMonth === selectedMonth;
+    const matchMonth = selectedMonth.startsWith('annual') || tripMonth === selectedMonth;
     const matchTruck = filterTruck === 'all' || trip.truck === filterTruck;
     return matchMonth && matchTruck;
   });
@@ -3296,20 +3601,15 @@ const BudgetedRevenueModule = ({ company, config, budgetedRevenue, setBudgetedRe
           <p className="text-slate-500">Plan and track revenue targets for {config.label}</p>
         </div>
         <div className="flex gap-3">
-          <Select value={selectedMonth} onChange={e => setSelectedMonth(e.target.value)}>
-            <option value="annual">Annual 2025</option>
-            <option value="2025-01">January 2025</option>
-            <option value="2025-02">February 2025</option>
-            <option value="2025-03">March 2025</option>
-          </Select>
+          <MonthYearSelector value={selectedMonth} onChange={e => setSelectedMonth(e.target.value)} includeAnnual={true} />
           <ExportButtons
             onPDF={() => {
               const data = exportData();
-              exportToPDF(data.title, data.headers, data.data, company, selectedMonth === 'annual' ? 'Annual 2025' : new Date(selectedMonth + '-01').toLocaleDateString('en-ZA', { month: 'long', year: 'numeric' }));
+              exportToPDF(data.title, data.headers, data.data, company, selectedMonth.startsWith('annual') ? `Annual ${selectedMonth.split('-')[1] || '2025'}` : new Date(selectedMonth + '-01').toLocaleDateString('en-ZA', { month: 'long', year: 'numeric' }));
             }}
             onExcel={() => {
               const data = exportData();
-              exportToExcel(data.title.replace(/\s+/g, '_'), data.headers, data.data, company, selectedMonth === 'annual' ? 'Annual 2025' : new Date(selectedMonth + '-01').toLocaleDateString('en-ZA', { month: 'long', year: 'numeric' }));
+              exportToExcel(data.title.replace(/\s+/g, '_'), data.headers, data.data, company, selectedMonth.startsWith('annual') ? `Annual ${selectedMonth.split('-')[1] || '2025'}` : new Date(selectedMonth + '-01').toLocaleDateString('en-ZA', { month: 'long', year: 'numeric' }));
             }}
           />
           {isHaulage && activeView === 'trip' && (
@@ -3323,28 +3623,28 @@ const BudgetedRevenueModule = ({ company, config, budgetedRevenue, setBudgetedRe
       {/* Summary KPI Cards */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <KPICard
-          title={selectedMonth === 'annual' ? 'Annual Budgeted Revenue' : 'Monthly Budgeted Revenue'}
-          value={`R ${(selectedMonth === 'annual' ? (annualData.totalRevenue || 0) : (monthlyData.totalRevenue || 0)).toLocaleString()}`}
+          title={selectedMonth.startsWith('annual') ? 'Annual Budgeted Revenue' : 'Monthly Budgeted Revenue'}
+          value={`R ${(selectedMonth.startsWith('annual') ? (annualData.totalRevenue || 0) : (monthlyData.totalRevenue || 0)).toLocaleString()}`}
           icon={<Icons.Target />}
           color="blue"
         />
         <KPICard
           title="Actual Revenue"
-          value={`R ${(selectedMonth === 'annual' ? totalActualRevenue : actualMonthlyRevenue).toLocaleString()}`}
+          value={`R ${(selectedMonth.startsWith('annual') ? totalActualRevenue : actualMonthlyRevenue).toLocaleString()}`}
           icon={<Icons.DollarSign />}
           color="emerald"
         />
         <KPICard
           title="Variance"
-          value={`R ${(selectedMonth === 'annual' ? (totalActualRevenue - (annualData.totalRevenue || 0)) : variance).toLocaleString()}`}
+          value={`R ${(selectedMonth.startsWith('annual') ? (totalActualRevenue - (annualData.totalRevenue || 0)) : variance).toLocaleString()}`}
           icon={variance >= 0 ? <Icons.TrendingUp /> : <Icons.TrendingDown />}
           color={variance >= 0 ? 'emerald' : 'red'}
           trend={selectedMonth !== 'annual' ? variancePercent : undefined}
           trendLabel={selectedMonth !== 'annual' ? 'vs budget' : undefined}
         />
         <KPICard
-          title={selectedMonth === 'annual' ? 'Annual Target' : 'Monthly Target'}
-          value={`R ${(selectedMonth === 'annual' ? (annualData.target || 0) : (monthlyData.target || 0)).toLocaleString()}`}
+          title={selectedMonth.startsWith('annual') ? 'Annual Target' : 'Monthly Target'}
+          value={`R ${(selectedMonth.startsWith('annual') ? (annualData.target || 0) : (monthlyData.target || 0)).toLocaleString()}`}
           icon={<Icons.ArrowUpRight />}
           color="purple"
         />
@@ -3462,7 +3762,7 @@ const BudgetedRevenueModule = ({ company, config, budgetedRevenue, setBudgetedRe
               {/* Truck Summary Table */}
               <div className="bg-white rounded-xl border shadow-sm overflow-hidden">
                 <div className="p-4 border-b bg-slate-50">
-                  <h3 className="font-semibold">{isHaulage ? 'Per Truck' : 'Per Unit'} Revenue Budget - {selectedMonth === 'annual' ? 'Annual' : new Date(selectedMonth + '-01').toLocaleDateString('en-ZA', { month: 'long', year: 'numeric' })}</h3>
+                  <h3 className="font-semibold">{isHaulage ? 'Per Truck' : 'Per Unit'} Revenue Budget - {selectedMonth.startsWith('annual') ? 'Annual' : new Date(selectedMonth + '-01').toLocaleDateString('en-ZA', { month: 'long', year: 'numeric' })}</h3>
                 </div>
                 <table className="w-full">
                   <thead className="bg-slate-50 border-b">
@@ -3478,7 +3778,7 @@ const BudgetedRevenueModule = ({ company, config, budgetedRevenue, setBudgetedRe
                   </thead>
                   <tbody>
                     {Object.entries(truckData).map(([truckId, data]) => {
-                      const isAnnual = selectedMonth === 'annual';
+                      const isAnnual = selectedMonth.startsWith('annual');
                       const viewData = isAnnual ? data.annual : (data.monthly?.[selectedMonth] || {});
                       const totalBudgetedRevAll = isAnnual
                         ? Object.values(truckData).reduce((s, t) => s + (t.annual?.revenue || 0), 0)
@@ -3508,19 +3808,19 @@ const BudgetedRevenueModule = ({ company, config, budgetedRevenue, setBudgetedRe
                     <tr>
                       <td colSpan={2} className="px-4 py-3 text-sm font-bold">TOTAL</td>
                       <td className="px-4 py-3 text-sm text-right font-bold">
-                        R {(selectedMonth === 'annual'
+                        R {(selectedMonth.startsWith('annual')
                           ? Object.values(truckData).reduce((s, t) => s + (t.annual?.revenue || 0), 0)
                           : Object.values(truckData).reduce((s, t) => s + (t.monthly?.[selectedMonth]?.revenue || 0), 0)
                         ).toLocaleString()}
                       </td>
                       <td className="px-4 py-3 text-sm text-right font-bold text-purple-700">
-                        R {(selectedMonth === 'annual'
+                        R {(selectedMonth.startsWith('annual')
                           ? Object.values(truckData).reduce((s, t) => s + (t.annual?.target || 0), 0)
                           : Object.values(truckData).reduce((s, t) => s + (t.monthly?.[selectedMonth]?.target || 0), 0)
                         ).toLocaleString()}
                       </td>
                       <td className="px-4 py-3 text-sm text-right font-bold">
-                        {selectedMonth === 'annual'
+                        {selectedMonth.startsWith('annual')
                           ? Object.values(truckData).reduce((s, t) => s + (t.annual?.trips || 0), 0)
                           : Object.values(truckData).reduce((s, t) => s + (t.monthly?.[selectedMonth]?.trips || 0), 0)}
                       </td>
@@ -3531,7 +3831,7 @@ const BudgetedRevenueModule = ({ company, config, budgetedRevenue, setBudgetedRe
               </div>
 
               {/* Per-Truck Monthly Breakdown Cards */}
-              {selectedMonth === 'annual' && (
+              {selectedMonth.startsWith('annual') && (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                   {Object.entries(truckData).map(([truckId, data]) => (
                     <div key={truckId} className="bg-white rounded-xl border shadow-sm overflow-hidden">
@@ -3790,7 +4090,7 @@ const BudgetsModule = ({ company, config, budgets, setBudgets, categories }) => 
     }
   };
 
-  const isAnnual = selectedMonth === 'annual';
+  const isAnnual = selectedMonth.startsWith('annual');
   const budgetData = isAnnual ? annualBudget : companyBudget;
   const totalExpenses = Object.entries(budgetData).filter(([k]) => k !== 'revenue').reduce((s, [,v]) => s + v, 0);
 
@@ -3827,12 +4127,7 @@ const BudgetsModule = ({ company, config, budgets, setBudgets, categories }) => 
           <p className="text-slate-500">Set and manage budgets for {config.label}</p>
         </div>
         <div className="flex gap-3">
-          <Select value={selectedMonth} onChange={e => setSelectedMonth(e.target.value)}>
-            <option value="annual">Annual 2025</option>
-            <option value="2025-01">January 2025</option>
-            <option value="2025-02">February 2025</option>
-            <option value="2025-03">March 2025</option>
-          </Select>
+          <MonthYearSelector value={selectedMonth} onChange={e => setSelectedMonth(e.target.value)} includeAnnual={true} />
           <ExportButtons 
             onPDF={() => {
               const data = exportBudgetData();
@@ -3870,7 +4165,7 @@ const BudgetsModule = ({ company, config, budgets, setBudgets, categories }) => 
       {/* Budget Table */}
       <div className="bg-white rounded-xl border shadow-sm overflow-hidden">
         <div className="p-4 border-b bg-slate-50">
-          <h3 className="font-semibold">{tabs.find(t => t.id === activeTab)?.name} - {isAnnual ? 'Annual' : new Date(selectedMonth + '-01').toLocaleDateString('en-ZA', { month: 'long', year: 'numeric' })}</h3>
+          <h3 className="font-semibold">{tabs.find(t => t.id === activeTab)?.name} - {isAnnual ? `Annual ${selectedMonth.split('-')[1] || '2025'}` : new Date(selectedMonth + '-01').toLocaleDateString('en-ZA', { month: 'long', year: 'numeric' })}</h3>
         </div>
         <table className="w-full">
           <thead className="bg-slate-50 border-b">
@@ -4499,6 +4794,515 @@ const AssetForm = ({ asset, onSave, onCancel }) => {
   );
 };
 
+// Cost Analysis Module (Haulage)
+const CostAnalysisModule = ({ company, config, jobs, fleet, actuals, budgets }) => {
+  const [activeTab, setActiveTab] = useState('perKm');
+  const trucks = fleet?.trucks || [];
+  const companyActuals = actuals[company.id] || {};
+  const companyBudgets = budgets[company.id] || {};
+  const truckActuals = companyActuals.byTruck || {};
+  const truckBudgets = companyBudgets.byTruck || {};
+  const routeActuals = companyActuals.byRoute || {};
+  const routeBudgets = companyBudgets.byRoute || {};
+
+  const completedJobs = jobs.filter(j => j.status === 'Completed');
+  const totalRevenue = completedJobs.reduce((s, j) => s + (j.revenue || 0), 0);
+  const totalFuel = completedJobs.reduce((s, j) => s + (j.fuelCost || 0), 0);
+  const totalTolls = completedJobs.reduce((s, j) => s + (j.tollCost || 0), 0);
+  const totalOther = completedJobs.reduce((s, j) => s + (j.otherCosts || 0), 0);
+  const totalDistance = completedJobs.reduce((s, j) => s + (j.distance || 0), 0);
+  const totalCosts = totalFuel + totalTolls + totalOther;
+  const avgCostPerKm = totalDistance > 0 ? (totalCosts / totalDistance) : 0;
+  const avgRevenuePerKm = totalDistance > 0 ? (totalRevenue / totalDistance) : 0;
+
+  // Driver performance from jobs
+  const driverStats = {};
+  completedJobs.forEach(j => {
+    if (!driverStats[j.driver]) {
+      driverStats[j.driver] = { trips: 0, revenue: 0, fuelCost: 0, distance: 0, totalCosts: 0 };
+    }
+    driverStats[j.driver].trips += 1;
+    driverStats[j.driver].revenue += j.revenue || 0;
+    driverStats[j.driver].fuelCost += j.fuelCost || 0;
+    driverStats[j.driver].distance += j.distance || 0;
+    driverStats[j.driver].totalCosts += (j.fuelCost || 0) + (j.tollCost || 0) + (j.otherCosts || 0);
+  });
+
+  const tabs = [
+    { id: 'perKm', name: 'Cost per KM' },
+    { id: 'drivers', name: 'Driver Performance' },
+    { id: 'routes', name: 'Route Profitability' },
+    { id: 'trucks', name: 'Truck Efficiency' },
+  ];
+
+  return (
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-2xl font-bold text-slate-900">Cost Analysis</h2>
+          <p className="text-slate-500">Operational efficiency & profitability metrics</p>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+        <KPICard title="Completed Jobs" value={completedJobs.length} icon={<Icons.Check />} color="emerald" />
+        <KPICard title="Total Distance" value={`${totalDistance.toLocaleString()} km`} icon={<Icons.MapPin />} color="blue" />
+        <KPICard title="Avg Cost/KM" value={`R ${avgCostPerKm.toFixed(2)}`} icon={<Icons.Calculator />} color="amber" />
+        <KPICard title="Avg Revenue/KM" value={`R ${avgRevenuePerKm.toFixed(2)}`} icon={<Icons.DollarSign />} color="emerald" />
+        <KPICard title="Profit/KM" value={`R ${(avgRevenuePerKm - avgCostPerKm).toFixed(2)}`} icon={<Icons.TrendingUp />} color="purple" />
+      </div>
+
+      <div className="flex gap-1 overflow-x-auto pb-2 bg-slate-100 p-1 rounded-lg">
+        {tabs.map(tab => (
+          <button key={tab.id} onClick={() => setActiveTab(tab.id)}
+            className={`px-4 py-2 rounded-md text-sm font-medium whitespace-nowrap ${activeTab === tab.id ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-600'}`}>
+            {tab.name}
+          </button>
+        ))}
+      </div>
+
+      {/* Cost per KM Tab */}
+      {activeTab === 'perKm' && (
+        <div className="space-y-4">
+          <div className="bg-white rounded-xl border shadow-sm overflow-hidden">
+            <div className="p-4 border-b bg-slate-50">
+              <h3 className="font-semibold">Cost Breakdown per Job</h3>
+            </div>
+            <table className="w-full">
+              <thead className="bg-slate-50 border-b">
+                <tr>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-slate-600">Job</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-slate-600">Route</th>
+                  <th className="px-4 py-3 text-right text-xs font-medium text-slate-600">Distance (km)</th>
+                  <th className="px-4 py-3 text-right text-xs font-medium text-slate-600">Revenue (R)</th>
+                  <th className="px-4 py-3 text-right text-xs font-medium text-slate-600">Fuel (R)</th>
+                  <th className="px-4 py-3 text-right text-xs font-medium text-slate-600">Tolls (R)</th>
+                  <th className="px-4 py-3 text-right text-xs font-medium text-slate-600">Other (R)</th>
+                  <th className="px-4 py-3 text-right text-xs font-medium text-slate-600">Cost/km (R)</th>
+                  <th className="px-4 py-3 text-right text-xs font-medium text-slate-600">Rev/km (R)</th>
+                  <th className="px-4 py-3 text-right text-xs font-medium text-slate-600">Profit/km (R)</th>
+                </tr>
+              </thead>
+              <tbody>
+                {completedJobs.map(job => {
+                  const jCost = (job.fuelCost || 0) + (job.tollCost || 0) + (job.otherCosts || 0);
+                  const costPerKm = job.distance > 0 ? jCost / job.distance : 0;
+                  const revPerKm = job.distance > 0 ? (job.revenue || 0) / job.distance : 0;
+                  return (
+                    <tr key={job.id} className="border-b hover:bg-slate-50">
+                      <td className="px-4 py-3 text-sm font-medium">{job.jobNo}</td>
+                      <td className="px-4 py-3 text-sm">{job.origin} → {job.destination}</td>
+                      <td className="px-4 py-3 text-sm text-right">{(job.distance || 0).toLocaleString()}</td>
+                      <td className="px-4 py-3 text-sm text-right font-semibold">R {(job.revenue || 0).toLocaleString()}</td>
+                      <td className="px-4 py-3 text-sm text-right">R {(job.fuelCost || 0).toLocaleString()}</td>
+                      <td className="px-4 py-3 text-sm text-right">R {(job.tollCost || 0).toLocaleString()}</td>
+                      <td className="px-4 py-3 text-sm text-right">R {(job.otherCosts || 0).toLocaleString()}</td>
+                      <td className="px-4 py-3 text-sm text-right text-amber-600 font-medium">R {costPerKm.toFixed(2)}</td>
+                      <td className="px-4 py-3 text-sm text-right text-blue-600 font-medium">R {revPerKm.toFixed(2)}</td>
+                      <td className={`px-4 py-3 text-sm text-right font-bold ${(revPerKm - costPerKm) >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>R {(revPerKm - costPerKm).toFixed(2)}</td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+              <tfoot className="bg-blue-50">
+                <tr>
+                  <td colSpan={2} className="px-4 py-3 text-sm font-bold">AVERAGE</td>
+                  <td className="px-4 py-3 text-sm text-right font-bold">{completedJobs.length > 0 ? Math.round(totalDistance / completedJobs.length).toLocaleString() : 0}</td>
+                  <td className="px-4 py-3 text-sm text-right font-bold">R {completedJobs.length > 0 ? Math.round(totalRevenue / completedJobs.length).toLocaleString() : 0}</td>
+                  <td colSpan={3}></td>
+                  <td className="px-4 py-3 text-sm text-right font-bold">R {avgCostPerKm.toFixed(2)}</td>
+                  <td className="px-4 py-3 text-sm text-right font-bold">R {avgRevenuePerKm.toFixed(2)}</td>
+                  <td className="px-4 py-3 text-sm text-right font-bold">R {(avgRevenuePerKm - avgCostPerKm).toFixed(2)}</td>
+                </tr>
+              </tfoot>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {/* Driver Performance Tab */}
+      {activeTab === 'drivers' && (
+        <div className="space-y-4">
+          <div className="bg-white rounded-xl border shadow-sm overflow-hidden">
+            <div className="p-4 border-b bg-slate-50">
+              <h3 className="font-semibold">Driver Performance Summary</h3>
+            </div>
+            <table className="w-full">
+              <thead className="bg-slate-50 border-b">
+                <tr>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-slate-600">Driver</th>
+                  <th className="px-4 py-3 text-right text-xs font-medium text-slate-600">Trips</th>
+                  <th className="px-4 py-3 text-right text-xs font-medium text-slate-600">Total Distance (km)</th>
+                  <th className="px-4 py-3 text-right text-xs font-medium text-slate-600">Revenue (R)</th>
+                  <th className="px-4 py-3 text-right text-xs font-medium text-slate-600">Total Costs (R)</th>
+                  <th className="px-4 py-3 text-right text-xs font-medium text-slate-600">Profit (R)</th>
+                  <th className="px-4 py-3 text-right text-xs font-medium text-slate-600">Avg Rev/Trip (R)</th>
+                  <th className="px-4 py-3 text-right text-xs font-medium text-slate-600">Cost/km (R)</th>
+                  <th className="px-4 py-3 text-center text-xs font-medium text-slate-600">Efficiency</th>
+                </tr>
+              </thead>
+              <tbody>
+                {Object.entries(driverStats).map(([driver, stats]) => {
+                  const profit = stats.revenue - stats.totalCosts;
+                  const costPerKm = stats.distance > 0 ? stats.totalCosts / stats.distance : 0;
+                  const efficiency = stats.revenue > 0 ? (profit / stats.revenue * 100) : 0;
+                  return (
+                    <tr key={driver} className="border-b hover:bg-slate-50">
+                      <td className="px-4 py-3 text-sm font-medium">{driver}</td>
+                      <td className="px-4 py-3 text-sm text-right">{stats.trips}</td>
+                      <td className="px-4 py-3 text-sm text-right">{stats.distance.toLocaleString()}</td>
+                      <td className="px-4 py-3 text-sm text-right font-semibold">R {stats.revenue.toLocaleString()}</td>
+                      <td className="px-4 py-3 text-sm text-right">R {stats.totalCosts.toLocaleString()}</td>
+                      <td className={`px-4 py-3 text-sm text-right font-bold ${profit >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>R {profit.toLocaleString()}</td>
+                      <td className="px-4 py-3 text-sm text-right">R {stats.trips > 0 ? Math.round(stats.revenue / stats.trips).toLocaleString() : 0}</td>
+                      <td className="px-4 py-3 text-sm text-right">R {costPerKm.toFixed(2)}</td>
+                      <td className="px-4 py-3 text-center">
+                        <div className="flex items-center justify-center gap-2">
+                          <div className="w-20 bg-slate-200 rounded-full h-2">
+                            <div className={`h-2 rounded-full ${efficiency >= 40 ? 'bg-emerald-500' : efficiency >= 20 ? 'bg-amber-500' : 'bg-red-500'}`} style={{ width: `${Math.min(Math.max(efficiency, 0), 100)}%` }}></div>
+                          </div>
+                          <span className="text-xs font-medium">{efficiency.toFixed(0)}%</span>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+
+          {/* Driver Revenue Chart */}
+          <div className="bg-white rounded-xl border p-6">
+            <h3 className="font-semibold mb-4">Driver Revenue & Profit Comparison</h3>
+            <ResponsiveContainer width="100%" height={300}>
+              <BarChart data={Object.entries(driverStats).map(([driver, stats]) => ({
+                name: driver.split(' ')[0],
+                revenue: stats.revenue,
+                profit: stats.revenue - stats.totalCosts,
+                costs: stats.totalCosts,
+              }))}>
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis dataKey="name" />
+                <YAxis tickFormatter={(v) => `R${(v/1000).toFixed(0)}k`} />
+                <Tooltip formatter={(v) => `R ${v.toLocaleString()}`} />
+                <Legend />
+                <Bar dataKey="revenue" fill="#3b82f6" name="Revenue" radius={[4,4,0,0]} />
+                <Bar dataKey="costs" fill="#ef4444" name="Costs" radius={[4,4,0,0]} />
+                <Bar dataKey="profit" fill="#10b981" name="Profit" radius={[4,4,0,0]} />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+      )}
+
+      {/* Route Profitability Tab */}
+      {activeTab === 'routes' && (
+        <div className="bg-white rounded-xl border shadow-sm overflow-hidden">
+          <div className="p-4 border-b bg-slate-50">
+            <h3 className="font-semibold">Route Profitability Analysis</h3>
+          </div>
+          <table className="w-full">
+            <thead className="bg-slate-50 border-b">
+              <tr>
+                <th className="px-4 py-3 text-left text-xs font-medium text-slate-600">Route</th>
+                <th className="px-4 py-3 text-right text-xs font-medium text-slate-600">Budget Rev (R)</th>
+                <th className="px-4 py-3 text-right text-xs font-medium text-slate-600">Actual Rev (R)</th>
+                <th className="px-4 py-3 text-right text-xs font-medium text-slate-600">Budget Trips</th>
+                <th className="px-4 py-3 text-right text-xs font-medium text-slate-600">Actual Trips</th>
+                <th className="px-4 py-3 text-right text-xs font-medium text-slate-600">Fuel Cost (R)</th>
+                <th className="px-4 py-3 text-right text-xs font-medium text-slate-600">Tolls (R)</th>
+                <th className="px-4 py-3 text-right text-xs font-medium text-slate-600">Rev Variance</th>
+              </tr>
+            </thead>
+            <tbody>
+              {Object.entries(routeBudgets).map(([route, bData]) => {
+                const aData = routeActuals[route] || {};
+                const revVar = (aData.revenue || 0) - (bData.revenue || 0);
+                const revVarPct = (bData.revenue || 0) > 0 ? (revVar / bData.revenue * 100) : 0;
+                return (
+                  <tr key={route} className="border-b hover:bg-slate-50">
+                    <td className="px-4 py-3 text-sm font-medium"><Badge variant="info">{route}</Badge></td>
+                    <td className="px-4 py-3 text-sm text-right">R {(bData.revenue || 0).toLocaleString()}</td>
+                    <td className="px-4 py-3 text-sm text-right font-semibold">R {(aData.revenue || 0).toLocaleString()}</td>
+                    <td className="px-4 py-3 text-sm text-right">{bData.trips || 0}</td>
+                    <td className="px-4 py-3 text-sm text-right font-semibold">{aData.trips || 0}</td>
+                    <td className="px-4 py-3 text-sm text-right">R {(aData.fuel || 0).toLocaleString()}</td>
+                    <td className="px-4 py-3 text-sm text-right">R {(aData.tolls || 0).toLocaleString()}</td>
+                    <td className={`px-4 py-3 text-sm text-right font-bold ${revVar >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>
+                      {revVar >= 0 ? '+' : ''}{revVarPct.toFixed(1)}%
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      {/* Truck Efficiency Tab */}
+      {activeTab === 'trucks' && (
+        <div className="space-y-4">
+          <div className="bg-white rounded-xl border shadow-sm overflow-hidden">
+            <div className="p-4 border-b bg-slate-50">
+              <h3 className="font-semibold">Truck Revenue & Cost Efficiency</h3>
+            </div>
+            <table className="w-full">
+              <thead className="bg-slate-50 border-b">
+                <tr>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-slate-600">Truck</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-slate-600">Make/Model</th>
+                  <th className="px-4 py-3 text-right text-xs font-medium text-slate-600">Budget Rev (R)</th>
+                  <th className="px-4 py-3 text-right text-xs font-medium text-slate-600">Actual Rev (R)</th>
+                  <th className="px-4 py-3 text-right text-xs font-medium text-slate-600">Fuel (R)</th>
+                  <th className="px-4 py-3 text-right text-xs font-medium text-slate-600">Repairs (R)</th>
+                  <th className="px-4 py-3 text-right text-xs font-medium text-slate-600">Net Profit (R)</th>
+                  <th className="px-4 py-3 text-center text-xs font-medium text-slate-600">ROI</th>
+                </tr>
+              </thead>
+              <tbody>
+                {trucks.filter(t => truckBudgets[t.fleetNo] || truckActuals[t.fleetNo]).map(truck => {
+                  const bData = truckBudgets[truck.fleetNo] || {};
+                  const aData = truckActuals[truck.fleetNo] || {};
+                  const aCosts = (aData.fuel || 0) + (aData.repairs || 0) + (aData.tyres || 0) + (aData.tolls || 0) + (aData.depreciation || 0);
+                  const netProfit = (aData.revenue || 0) - aCosts;
+                  const roi = truck.purchasePrice > 0 ? (netProfit / truck.purchasePrice * 100) : 0;
+                  return (
+                    <tr key={truck.id} className="border-b hover:bg-slate-50">
+                      <td className="px-4 py-3 text-sm font-medium"><Badge variant="info">{truck.fleetNo}</Badge></td>
+                      <td className="px-4 py-3 text-sm">{truck.make} {truck.model}</td>
+                      <td className="px-4 py-3 text-sm text-right">R {(bData.revenue || 0).toLocaleString()}</td>
+                      <td className="px-4 py-3 text-sm text-right font-semibold">R {(aData.revenue || 0).toLocaleString()}</td>
+                      <td className="px-4 py-3 text-sm text-right">R {(aData.fuel || 0).toLocaleString()}</td>
+                      <td className="px-4 py-3 text-sm text-right">R {(aData.repairs || 0).toLocaleString()}</td>
+                      <td className={`px-4 py-3 text-sm text-right font-bold ${netProfit >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>R {netProfit.toLocaleString()}</td>
+                      <td className="px-4 py-3 text-center">
+                        <Badge variant={roi >= 5 ? 'success' : roi >= 0 ? 'warning' : 'danger'}>{roi.toFixed(1)}%</Badge>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
+// Projects Module (Construction)
+const ProjectsModule = ({ company, config, budgets, actuals, categories }) => {
+  const projectData = budgets[company.id]?.byProject || {};
+  const actualProjectData = actuals[company.id]?.byProject || {};
+  const projects = Object.entries(projectData);
+
+  const totalBudgetRevenue = projects.reduce((s, [, p]) => s + (p.revenue || 0), 0);
+  const totalActualRevenue = Object.values(actualProjectData).reduce((s, p) => s + (p.revenue || 0), 0);
+  const totalBudgetCosts = projects.reduce((s, [, p]) => s + (p.materials || 0) + (p.subcontractors || 0) + (p.labour || 0) + (p.equipment || 0) + (p.depreciation || 0), 0);
+  const totalActualCosts = Object.values(actualProjectData).reduce((s, p) => s + (p.materials || 0) + (p.subcontractors || 0) + (p.labour || 0) + (p.equipment || 0) + (p.depreciation || 0), 0);
+
+  return (
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-2xl font-bold text-slate-900">Projects</h2>
+          <p className="text-slate-500">Track project budgets & profitability for {config.label}</p>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <KPICard title="Active Projects" value={projects.length} icon={<Icons.Building />} color="blue" />
+        <KPICard title="Budget Revenue" value={`R ${totalBudgetRevenue.toLocaleString()}`} icon={<Icons.Target />} color="emerald" />
+        <KPICard title="Actual Revenue" value={`R ${totalActualRevenue.toLocaleString()}`} icon={<Icons.DollarSign />} color="amber" />
+        <KPICard title="Profit Margin" value={`${totalActualRevenue > 0 ? ((totalActualRevenue - totalActualCosts) / totalActualRevenue * 100).toFixed(1) : 0}%`} icon={<Icons.Percent />} color="purple" />
+      </div>
+
+      <div className="bg-white rounded-xl border shadow-sm overflow-hidden">
+        <div className="p-4 border-b bg-slate-50">
+          <h3 className="font-semibold">Project Budget vs Actuals</h3>
+        </div>
+        <table className="w-full">
+          <thead className="bg-slate-50 border-b">
+            <tr>
+              <th className="px-4 py-3 text-left text-xs font-medium text-slate-600">Project</th>
+              <th className="px-4 py-3 text-right text-xs font-medium text-slate-600">Budget Rev (R)</th>
+              <th className="px-4 py-3 text-right text-xs font-medium text-slate-600">Actual Rev (R)</th>
+              <th className="px-4 py-3 text-right text-xs font-medium text-slate-600">Budget Costs (R)</th>
+              <th className="px-4 py-3 text-right text-xs font-medium text-slate-600">Actual Costs (R)</th>
+              <th className="px-4 py-3 text-right text-xs font-medium text-slate-600">Budget Profit (R)</th>
+              <th className="px-4 py-3 text-right text-xs font-medium text-slate-600">Actual Profit (R)</th>
+              <th className="px-4 py-3 text-right text-xs font-medium text-slate-600">Margin %</th>
+            </tr>
+          </thead>
+          <tbody>
+            {projects.map(([id, proj]) => {
+              const actual = actualProjectData[id] || {};
+              const bCosts = (proj.materials || 0) + (proj.subcontractors || 0) + (proj.labour || 0) + (proj.equipment || 0) + (proj.depreciation || 0);
+              const aCosts = (actual.materials || 0) + (actual.subcontractors || 0) + (actual.labour || 0) + (actual.equipment || 0) + (actual.depreciation || 0);
+              const bProfit = (proj.revenue || 0) - bCosts;
+              const aProfit = (actual.revenue || 0) - aCosts;
+              const margin = (actual.revenue || 0) > 0 ? (aProfit / actual.revenue * 100) : 0;
+              return (
+                <tr key={id} className="border-b hover:bg-slate-50">
+                  <td className="px-4 py-3 text-sm font-medium">{id}</td>
+                  <td className="px-4 py-3 text-sm text-right">R {(proj.revenue || 0).toLocaleString()}</td>
+                  <td className="px-4 py-3 text-sm text-right font-semibold">R {(actual.revenue || 0).toLocaleString()}</td>
+                  <td className="px-4 py-3 text-sm text-right">R {bCosts.toLocaleString()}</td>
+                  <td className="px-4 py-3 text-sm text-right font-semibold">R {aCosts.toLocaleString()}</td>
+                  <td className="px-4 py-3 text-sm text-right text-blue-600">R {bProfit.toLocaleString()}</td>
+                  <td className={`px-4 py-3 text-sm text-right font-bold ${aProfit >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>R {aProfit.toLocaleString()}</td>
+                  <td className={`px-4 py-3 text-sm text-right font-bold ${margin >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>{margin.toFixed(1)}%</td>
+                </tr>
+              );
+            })}
+          </tbody>
+          <tfoot className="bg-blue-50">
+            <tr>
+              <td className="px-4 py-3 text-sm font-bold">TOTAL</td>
+              <td className="px-4 py-3 text-sm text-right font-bold">R {totalBudgetRevenue.toLocaleString()}</td>
+              <td className="px-4 py-3 text-sm text-right font-bold">R {totalActualRevenue.toLocaleString()}</td>
+              <td className="px-4 py-3 text-sm text-right font-bold">R {totalBudgetCosts.toLocaleString()}</td>
+              <td className="px-4 py-3 text-sm text-right font-bold">R {totalActualCosts.toLocaleString()}</td>
+              <td className="px-4 py-3 text-sm text-right font-bold text-blue-600">R {(totalBudgetRevenue - totalBudgetCosts).toLocaleString()}</td>
+              <td className={`px-4 py-3 text-sm text-right font-bold ${(totalActualRevenue - totalActualCosts) >= 0 ? 'text-emerald-700' : 'text-red-700'}`}>R {(totalActualRevenue - totalActualCosts).toLocaleString()}</td>
+              <td className="px-4 py-3 text-sm text-right font-bold">{totalActualRevenue > 0 ? ((totalActualRevenue - totalActualCosts) / totalActualRevenue * 100).toFixed(1) : 0}%</td>
+            </tr>
+          </tfoot>
+        </table>
+      </div>
+
+      {/* Project Cost Breakdown Chart */}
+      <div className="bg-white rounded-xl border p-6">
+        <h3 className="font-semibold mb-4">Project Cost Breakdown</h3>
+        <ResponsiveContainer width="100%" height={300}>
+          <BarChart data={projects.map(([id, proj]) => {
+            const actual = actualProjectData[id] || {};
+            return {
+              name: id,
+              materials: actual.materials || 0,
+              subcontractors: actual.subcontractors || 0,
+              labour: actual.labour || 0,
+              equipment: actual.equipment || 0,
+            };
+          })}>
+            <CartesianGrid strokeDasharray="3 3" />
+            <XAxis dataKey="name" />
+            <YAxis tickFormatter={(v) => `R${(v/1000000).toFixed(1)}M`} />
+            <Tooltip formatter={(v) => `R ${v.toLocaleString()}`} />
+            <Legend />
+            <Bar dataKey="materials" stackId="a" fill="#3b82f6" name="Materials" />
+            <Bar dataKey="subcontractors" stackId="a" fill="#10b981" name="Subcontractors" />
+            <Bar dataKey="labour" stackId="a" fill="#f59e0b" name="Labour" />
+            <Bar dataKey="equipment" stackId="a" fill="#8b5cf6" name="Equipment" />
+          </BarChart>
+        </ResponsiveContainer>
+      </div>
+    </div>
+  );
+};
+
+// Programs Module (Education)
+const ProgramsModule = ({ company, config, budgets, actuals, categories }) => {
+  const programData = budgets[company.id]?.byProgram || {};
+  const actualProgramData = actuals[company.id]?.byProgram || {};
+  const programs = Object.entries(programData);
+
+  const totalBudgetRevenue = programs.reduce((s, [, p]) => s + (p.revenue || 0), 0);
+  const totalActualRevenue = Object.values(actualProgramData).reduce((s, p) => s + (p.revenue || 0), 0);
+  const totalBudgetCosts = programs.reduce((s, [, p]) => s + (p.academicSalaries || 0) + (p.materials || 0) + (p.practicals || 0) + (p.depreciation || 0), 0);
+  const totalActualCosts = Object.values(actualProgramData).reduce((s, p) => s + (p.academicSalaries || 0) + (p.materials || 0) + (p.practicals || 0) + (p.depreciation || 0), 0);
+
+  return (
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-2xl font-bold text-slate-900">Programs</h2>
+          <p className="text-slate-500">Track program budgets & enrolment revenue for {config.label}</p>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <KPICard title="Active Programs" value={programs.length} icon={<Icons.GraduationCap />} color="purple" />
+        <KPICard title="Budget Revenue" value={`R ${totalBudgetRevenue.toLocaleString()}`} icon={<Icons.Target />} color="blue" />
+        <KPICard title="Actual Revenue" value={`R ${totalActualRevenue.toLocaleString()}`} icon={<Icons.DollarSign />} color="emerald" />
+        <KPICard title="Surplus Margin" value={`${totalActualRevenue > 0 ? ((totalActualRevenue - totalActualCosts) / totalActualRevenue * 100).toFixed(1) : 0}%`} icon={<Icons.Percent />} color="amber" />
+      </div>
+
+      <div className="bg-white rounded-xl border shadow-sm overflow-hidden">
+        <div className="p-4 border-b bg-slate-50">
+          <h3 className="font-semibold">Program Budget vs Actuals</h3>
+        </div>
+        <table className="w-full">
+          <thead className="bg-slate-50 border-b">
+            <tr>
+              <th className="px-4 py-3 text-left text-xs font-medium text-slate-600">Program</th>
+              <th className="px-4 py-3 text-right text-xs font-medium text-slate-600">Budget Rev (R)</th>
+              <th className="px-4 py-3 text-right text-xs font-medium text-slate-600">Actual Rev (R)</th>
+              <th className="px-4 py-3 text-right text-xs font-medium text-slate-600">Academic Salaries (R)</th>
+              <th className="px-4 py-3 text-right text-xs font-medium text-slate-600">Materials (R)</th>
+              <th className="px-4 py-3 text-right text-xs font-medium text-slate-600">Practicals (R)</th>
+              <th className="px-4 py-3 text-right text-xs font-medium text-slate-600">Surplus (R)</th>
+              <th className="px-4 py-3 text-right text-xs font-medium text-slate-600">Margin %</th>
+            </tr>
+          </thead>
+          <tbody>
+            {programs.map(([id, prog]) => {
+              const actual = actualProgramData[id] || {};
+              const aCosts = (actual.academicSalaries || 0) + (actual.materials || 0) + (actual.practicals || 0) + (actual.depreciation || 0);
+              const surplus = (actual.revenue || 0) - aCosts;
+              const margin = (actual.revenue || 0) > 0 ? (surplus / actual.revenue * 100) : 0;
+              return (
+                <tr key={id} className="border-b hover:bg-slate-50">
+                  <td className="px-4 py-3 text-sm font-medium">{id}</td>
+                  <td className="px-4 py-3 text-sm text-right">R {(prog.revenue || 0).toLocaleString()}</td>
+                  <td className="px-4 py-3 text-sm text-right font-semibold">R {(actual.revenue || 0).toLocaleString()}</td>
+                  <td className="px-4 py-3 text-sm text-right">R {(actual.academicSalaries || 0).toLocaleString()}</td>
+                  <td className="px-4 py-3 text-sm text-right">R {(actual.materials || 0).toLocaleString()}</td>
+                  <td className="px-4 py-3 text-sm text-right">R {(actual.practicals || 0).toLocaleString()}</td>
+                  <td className={`px-4 py-3 text-sm text-right font-bold ${surplus >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>R {surplus.toLocaleString()}</td>
+                  <td className={`px-4 py-3 text-sm text-right font-bold ${margin >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>{margin.toFixed(1)}%</td>
+                </tr>
+              );
+            })}
+          </tbody>
+          <tfoot className="bg-purple-50">
+            <tr>
+              <td className="px-4 py-3 text-sm font-bold">TOTAL</td>
+              <td className="px-4 py-3 text-sm text-right font-bold">R {totalBudgetRevenue.toLocaleString()}</td>
+              <td className="px-4 py-3 text-sm text-right font-bold">R {totalActualRevenue.toLocaleString()}</td>
+              <td className="px-4 py-3 text-sm text-right font-bold">R {Object.values(actualProgramData).reduce((s, p) => s + (p.academicSalaries || 0), 0).toLocaleString()}</td>
+              <td className="px-4 py-3 text-sm text-right font-bold">R {Object.values(actualProgramData).reduce((s, p) => s + (p.materials || 0), 0).toLocaleString()}</td>
+              <td className="px-4 py-3 text-sm text-right font-bold">R {Object.values(actualProgramData).reduce((s, p) => s + (p.practicals || 0), 0).toLocaleString()}</td>
+              <td className={`px-4 py-3 text-sm text-right font-bold ${(totalActualRevenue - totalActualCosts) >= 0 ? 'text-emerald-700' : 'text-red-700'}`}>R {(totalActualRevenue - totalActualCosts).toLocaleString()}</td>
+              <td className="px-4 py-3 text-sm text-right font-bold">{totalActualRevenue > 0 ? ((totalActualRevenue - totalActualCosts) / totalActualRevenue * 100).toFixed(1) : 0}%</td>
+            </tr>
+          </tfoot>
+        </table>
+      </div>
+
+      {/* Program Revenue Comparison Chart */}
+      <div className="bg-white rounded-xl border p-6">
+        <h3 className="font-semibold mb-4">Program Revenue: Budget vs Actual</h3>
+        <ResponsiveContainer width="100%" height={300}>
+          <BarChart data={programs.map(([id, prog]) => ({
+            name: id,
+            budget: prog.revenue || 0,
+            actual: (actualProgramData[id]?.revenue || 0),
+          }))}>
+            <CartesianGrid strokeDasharray="3 3" />
+            <XAxis dataKey="name" />
+            <YAxis tickFormatter={(v) => `R${(v/1000000).toFixed(1)}M`} />
+            <Tooltip formatter={(v) => `R ${v.toLocaleString()}`} />
+            <Legend />
+            <Bar dataKey="budget" fill="#8b5cf6" name="Budget Revenue" radius={[4,4,0,0]} />
+            <Bar dataKey="actual" fill="#10b981" name="Actual Revenue" radius={[4,4,0,0]} />
+          </BarChart>
+        </ResponsiveContainer>
+      </div>
+    </div>
+  );
+};
+
 // Reports Module - Comprehensive Budget vs Actuals
 const ReportsModule = ({ company, config, budgets, actuals, yoyData, assets = [], categories = [] }) => {
   const [activeReport, setActiveReport] = useState('summary');
@@ -4843,14 +5647,7 @@ const ReportsModule = ({ company, config, budgets, actuals, yoyData, assets = []
           <p className="text-slate-500">Comprehensive variance analysis</p>
         </div>
         <div className="flex items-center gap-3">
-          <Select value={filterMonth} onChange={e => setFilterMonth(e.target.value)}>
-            <option value="2025-01">January 2025</option>
-            <option value="2025-02">February 2025</option>
-            <option value="2025-03">March 2025</option>
-            <option value="2025-04">April 2025</option>
-            <option value="2025-05">May 2025</option>
-            <option value="2025-06">June 2025</option>
-          </Select>
+          <MonthYearSelector value={filterMonth} onChange={e => setFilterMonth(e.target.value)} />
           <ExportButtons 
             onPrintWithCharts={() => printWithCharts('report-content', `${reportTabs.find(t => t.id === activeReport)?.name || 'Report'} - Budget vs Actuals`, company, getMonthName(filterMonth))}
             onPDF={() => {

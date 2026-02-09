@@ -1986,7 +1986,7 @@ export default function MultiCompanyJobCosting() {
           setEditAsset={setEditAsset}
         />;
       case 'reports':
-        return <ReportsModule company={selectedCompany} config={config} budgets={budgets} actuals={actuals} yoyData={yoyData} assets={assets[selectedCompany.id] || []} categories={categories} />;
+        return <ReportsModule company={selectedCompany} config={config} budgets={budgets} actuals={actuals} budgetedRevenue={budgetedRevenue} yoyData={yoyData} assets={assets[selectedCompany.id] || []} categories={categories} jobs={jobs[selectedCompany.id]?.jobs || []} />;
       case 'cost-analysis':
         return <CostAnalysisModule
           company={selectedCompany}
@@ -2901,7 +2901,8 @@ const JobsModule = ({ company, config, jobs, setJobs, fleet }) => {
   const filteredJobs = filterStatus === 'all' ? jobs : jobs.filter(j => j.status === filterStatus);
 
   const totalRevenue = jobs.reduce((s, j) => s + (j.revenue || 0), 0);
-  const totalCosts = jobs.reduce((s, j) => s + (j.fuelCost || 0) + (j.tollCost || 0) + (j.otherCosts || 0), 0);
+  const getJobTotalCosts = (j) => (j.fuelCost || 0) + (j.tollCost || 0) + (j.repairsCost || 0) + (j.tyresCost || 0) + (j.travelAllowance || 0) + (j.parkingFees || 0) + (j.depreciationCost || 0) + (j.licensingCost || 0) + (j.insuranceCost || 0) + (j.loadingCost || 0) + (j.otherCosts || 0);
+  const totalCosts = jobs.reduce((s, j) => s + getJobTotalCosts(j), 0);
   const completedJobs = jobs.filter(j => j.status === 'Completed').length;
 
   const exportJobsData = () => ({
@@ -2914,20 +2915,41 @@ const JobsModule = ({ company, config, jobs, setJobs, fleet }) => {
       { key: 'truck', label: 'Truck', align: 'left' },
       { key: 'status', label: 'Status', align: 'left' },
       { key: 'revenue', label: 'Revenue', align: 'right' },
-      { key: 'costs', label: 'Costs', align: 'right' },
+      { key: 'fuel', label: 'Fuel', align: 'right' },
+      { key: 'tolls', label: 'Tolls', align: 'right' },
+      { key: 'repairs', label: 'Repairs & Maint.', align: 'right' },
+      { key: 'tyres', label: 'Tyres', align: 'right' },
+      { key: 'travel', label: 'Travel Allow.', align: 'right' },
+      { key: 'parking', label: 'Parking', align: 'right' },
+      { key: 'depreciation', label: 'Depreciation', align: 'right' },
+      { key: 'licensing', label: 'Licensing', align: 'right' },
+      { key: 'insurance', label: 'Insurance', align: 'right' },
+      { key: 'loading', label: 'Loading/Unloading', align: 'right' },
+      { key: 'other', label: 'Other', align: 'right' },
+      { key: 'totalCosts', label: 'Total Costs', align: 'right' },
       { key: 'profit', label: 'Profit', align: 'right' },
     ],
-    data: filteredJobs.map(j => ({
-      jobNo: j.jobNo,
-      date: j.date,
-      customer: j.customer,
-      route: `${j.origin} → ${j.destination}`,
-      truck: j.truck,
-      status: j.status,
-      revenue: `R ${(j.revenue || 0).toLocaleString()}`,
-      costs: `R ${((j.fuelCost || 0) + (j.tollCost || 0) + (j.otherCosts || 0)).toLocaleString()}`,
-      profit: `R ${((j.revenue || 0) - (j.fuelCost || 0) - (j.tollCost || 0) - (j.otherCosts || 0)).toLocaleString()}`,
-    }))
+    data: filteredJobs.map(j => {
+      const jCosts = getJobTotalCosts(j);
+      return {
+        jobNo: j.jobNo, date: j.date, customer: j.customer,
+        route: `${j.origin} → ${j.destination}`, truck: j.truck, status: j.status,
+        revenue: `R ${(j.revenue || 0).toLocaleString()}`,
+        fuel: `R ${(j.fuelCost || 0).toLocaleString()}`,
+        tolls: `R ${(j.tollCost || 0).toLocaleString()}`,
+        repairs: `R ${(j.repairsCost || 0).toLocaleString()}`,
+        tyres: `R ${(j.tyresCost || 0).toLocaleString()}`,
+        travel: `R ${(j.travelAllowance || 0).toLocaleString()}`,
+        parking: `R ${(j.parkingFees || 0).toLocaleString()}`,
+        depreciation: `R ${(j.depreciationCost || 0).toLocaleString()}`,
+        licensing: `R ${(j.licensingCost || 0).toLocaleString()}`,
+        insurance: `R ${(j.insuranceCost || 0).toLocaleString()}`,
+        loading: `R ${(j.loadingCost || 0).toLocaleString()}`,
+        other: `R ${(j.otherCosts || 0).toLocaleString()}`,
+        totalCosts: `R ${jCosts.toLocaleString()}`,
+        profit: `R ${((j.revenue || 0) - jCosts).toLocaleString()}`,
+      };
+    })
   });
 
   return (
@@ -2996,7 +3018,7 @@ const JobsModule = ({ company, config, jobs, setJobs, fleet }) => {
             </thead>
             <tbody>
               {filteredJobs.map(job => {
-                const jobCosts = (job.fuelCost || 0) + (job.tollCost || 0) + (job.otherCosts || 0);
+                const jobCosts = getJobTotalCosts(job);
                 const profit = (job.revenue || 0) - jobCosts;
                 return (
                   <tr key={job.id} className="border-b hover:bg-slate-50">
@@ -3046,8 +3068,12 @@ const JobsModule = ({ company, config, jobs, setJobs, fleet }) => {
 const JobForm = ({ job, trucks, trailers, onSave, onCancel }) => {
   const [form, setForm] = useState(job || {
     jobNo: '', date: new Date().toISOString().split('T')[0], customer: '', loadType: '', origin: '', destination: '',
-    distance: 0, truck: '', trailer: '', driver: '', status: 'Scheduled', revenue: 0, fuelCost: 0, tollCost: 0, otherCosts: 0, notes: ''
+    distance: 0, truck: '', trailer: '', driver: '', status: 'Scheduled', revenue: 0,
+    fuelCost: 0, tollCost: 0, repairsCost: 0, tyresCost: 0, travelAllowance: 0,
+    parkingFees: 0, depreciationCost: 0, licensingCost: 0, insuranceCost: 0, loadingCost: 0, otherCosts: 0, notes: ''
   });
+
+  const getTotalCosts = () => (form.fuelCost || 0) + (form.tollCost || 0) + (form.repairsCost || 0) + (form.tyresCost || 0) + (form.travelAllowance || 0) + (form.parkingFees || 0) + (form.depreciationCost || 0) + (form.licensingCost || 0) + (form.insuranceCost || 0) + (form.loadingCost || 0) + (form.otherCosts || 0);
 
   return (
     <div className="space-y-4">
@@ -3098,19 +3124,48 @@ const JobForm = ({ job, trucks, trailers, onSave, onCancel }) => {
           </Select>
         </FormField>
       </div>
-      <div className="grid grid-cols-4 gap-4">
-        <FormField label="Revenue (R)">
-          <Input type="number" value={form.revenue} onChange={e => setForm({...form, revenue: parseFloat(e.target.value) || 0})} />
-        </FormField>
-        <FormField label="Fuel Cost (R)">
-          <Input type="number" value={form.fuelCost} onChange={e => setForm({...form, fuelCost: parseFloat(e.target.value) || 0})} />
-        </FormField>
-        <FormField label="Toll Cost (R)">
-          <Input type="number" value={form.tollCost} onChange={e => setForm({...form, tollCost: parseFloat(e.target.value) || 0})} />
-        </FormField>
-        <FormField label="Other Costs (R)">
-          <Input type="number" value={form.otherCosts} onChange={e => setForm({...form, otherCosts: parseFloat(e.target.value) || 0})} />
-        </FormField>
+      <div className="border-t pt-4 mt-2">
+        <h4 className="text-sm font-semibold text-slate-700 mb-3">Revenue & Costs</h4>
+        <div className="grid grid-cols-4 gap-4 mb-4">
+          <FormField label="Revenue (R)">
+            <Input type="number" value={form.revenue} onChange={e => setForm({...form, revenue: parseFloat(e.target.value) || 0})} />
+          </FormField>
+        </div>
+        <div className="grid grid-cols-4 gap-3">
+          <FormField label="Fuel Cost (R)">
+            <Input type="number" value={form.fuelCost} onChange={e => setForm({...form, fuelCost: parseFloat(e.target.value) || 0})} />
+          </FormField>
+          <FormField label="Toll Cost (R)">
+            <Input type="number" value={form.tollCost} onChange={e => setForm({...form, tollCost: parseFloat(e.target.value) || 0})} />
+          </FormField>
+          <FormField label="Repairs & Maintenance (R)">
+            <Input type="number" value={form.repairsCost} onChange={e => setForm({...form, repairsCost: parseFloat(e.target.value) || 0})} />
+          </FormField>
+          <FormField label="Tyres (R)">
+            <Input type="number" value={form.tyresCost} onChange={e => setForm({...form, tyresCost: parseFloat(e.target.value) || 0})} />
+          </FormField>
+          <FormField label="Travel Allowances (R)">
+            <Input type="number" value={form.travelAllowance} onChange={e => setForm({...form, travelAllowance: parseFloat(e.target.value) || 0})} />
+          </FormField>
+          <FormField label="Parking Fees (R)">
+            <Input type="number" value={form.parkingFees} onChange={e => setForm({...form, parkingFees: parseFloat(e.target.value) || 0})} />
+          </FormField>
+          <FormField label="Depreciation (R)">
+            <Input type="number" value={form.depreciationCost} onChange={e => setForm({...form, depreciationCost: parseFloat(e.target.value) || 0})} />
+          </FormField>
+          <FormField label="Licensing & Permits (R)">
+            <Input type="number" value={form.licensingCost} onChange={e => setForm({...form, licensingCost: parseFloat(e.target.value) || 0})} />
+          </FormField>
+          <FormField label="Insurance (R)">
+            <Input type="number" value={form.insuranceCost} onChange={e => setForm({...form, insuranceCost: parseFloat(e.target.value) || 0})} />
+          </FormField>
+          <FormField label="Loading & Unloading (R)">
+            <Input type="number" value={form.loadingCost} onChange={e => setForm({...form, loadingCost: parseFloat(e.target.value) || 0})} />
+          </FormField>
+          <FormField label="Other Costs (R)">
+            <Input type="number" value={form.otherCosts} onChange={e => setForm({...form, otherCosts: parseFloat(e.target.value) || 0})} />
+          </FormField>
+        </div>
       </div>
       <FormField label="Notes">
         <Input value={form.notes} onChange={e => setForm({...form, notes: e.target.value})} placeholder="Additional notes..." />
@@ -3118,19 +3173,25 @@ const JobForm = ({ job, trucks, trailers, onSave, onCancel }) => {
       
       {/* Profit Preview */}
       <div className="bg-blue-50 rounded-lg p-4">
-        <div className="grid grid-cols-3 gap-4 text-sm">
+        <div className="grid grid-cols-4 gap-4 text-sm">
           <div>
             <p className="text-blue-600">Revenue</p>
-            <p className="font-bold text-blue-900">R {form.revenue.toLocaleString()}</p>
+            <p className="font-bold text-blue-900">R {(form.revenue || 0).toLocaleString()}</p>
           </div>
           <div>
             <p className="text-blue-600">Total Costs</p>
-            <p className="font-bold text-red-600">R {(form.fuelCost + form.tollCost + form.otherCosts).toLocaleString()}</p>
+            <p className="font-bold text-red-600">R {getTotalCosts().toLocaleString()}</p>
           </div>
           <div>
             <p className="text-blue-600">Gross Profit</p>
-            <p className={`font-bold ${(form.revenue - form.fuelCost - form.tollCost - form.otherCosts) >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>
-              R {(form.revenue - form.fuelCost - form.tollCost - form.otherCosts).toLocaleString()}
+            <p className={`font-bold ${((form.revenue || 0) - getTotalCosts()) >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>
+              R {((form.revenue || 0) - getTotalCosts()).toLocaleString()}
+            </p>
+          </div>
+          <div>
+            <p className="text-blue-600">Margin</p>
+            <p className={`font-bold ${((form.revenue || 0) - getTotalCosts()) >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>
+              {form.revenue ? (((form.revenue - getTotalCosts()) / form.revenue) * 100).toFixed(1) : 0}%
             </p>
           </div>
         </div>
@@ -4809,9 +4870,12 @@ const CostAnalysisModule = ({ company, config, jobs, fleet, actuals, budgets }) 
   const totalRevenue = completedJobs.reduce((s, j) => s + (j.revenue || 0), 0);
   const totalFuel = completedJobs.reduce((s, j) => s + (j.fuelCost || 0), 0);
   const totalTolls = completedJobs.reduce((s, j) => s + (j.tollCost || 0), 0);
+  const totalRepairs = completedJobs.reduce((s, j) => s + (j.repairsCost || 0), 0);
+  const totalTyres = completedJobs.reduce((s, j) => s + (j.tyresCost || 0), 0);
   const totalOther = completedJobs.reduce((s, j) => s + (j.otherCosts || 0), 0);
   const totalDistance = completedJobs.reduce((s, j) => s + (j.distance || 0), 0);
-  const totalCosts = totalFuel + totalTolls + totalOther;
+  const getJobAllCosts = (j) => (j.fuelCost || 0) + (j.tollCost || 0) + (j.repairsCost || 0) + (j.tyresCost || 0) + (j.travelAllowance || 0) + (j.parkingFees || 0) + (j.depreciationCost || 0) + (j.licensingCost || 0) + (j.insuranceCost || 0) + (j.loadingCost || 0) + (j.otherCosts || 0);
+  const totalCosts = completedJobs.reduce((s, j) => s + getJobAllCosts(j), 0);
   const avgCostPerKm = totalDistance > 0 ? (totalCosts / totalDistance) : 0;
   const avgRevenuePerKm = totalDistance > 0 ? (totalRevenue / totalDistance) : 0;
 
@@ -4825,7 +4889,7 @@ const CostAnalysisModule = ({ company, config, jobs, fleet, actuals, budgets }) 
     driverStats[j.driver].revenue += j.revenue || 0;
     driverStats[j.driver].fuelCost += j.fuelCost || 0;
     driverStats[j.driver].distance += j.distance || 0;
-    driverStats[j.driver].totalCosts += (j.fuelCost || 0) + (j.tollCost || 0) + (j.otherCosts || 0);
+    driverStats[j.driver].totalCosts += getJobAllCosts(j);
   });
 
   const tabs = [
@@ -5304,13 +5368,14 @@ const ProgramsModule = ({ company, config, budgets, actuals, categories }) => {
 };
 
 // Reports Module - Comprehensive Budget vs Actuals
-const ReportsModule = ({ company, config, budgets, actuals, yoyData, assets = [], categories = [] }) => {
+const ReportsModule = ({ company, config, budgets, actuals, budgetedRevenue = {}, yoyData, assets = [], categories = [], jobs = [] }) => {
   const [activeReport, setActiveReport] = useState('summary');
   const [filterMonth, setFilterMonth] = useState('2025-01');
-  
+
   const companyBudget = budgets[company.id] || {};
   const companyActuals = actuals[company.id] || {};
   const companyYOY = yoyData[company.id] || {};
+  const companyBudgetedRevenue = budgetedRevenue[company.id] || {};
 
   // Group categories by type
   const directCosts = categories.filter(c => c.type === 'direct');
@@ -5344,6 +5409,8 @@ const ReportsModule = ({ company, config, budgets, actuals, yoyData, assets = []
     if (company.industry === 'haulage') {
       return [
         ...baseTabs.slice(0, 1),
+        { id: 'budgetedRevenue', name: 'Budgeted Revenue' },
+        { id: 'jobsReport', name: 'Jobs Report' },
         { id: 'perTruck', name: 'Per Truck' },
         { id: 'perRoute', name: 'Per Route' },
         { id: 'perTrip', name: 'Per Trip' },
@@ -5367,14 +5434,22 @@ const ReportsModule = ({ company, config, budgets, actuals, yoyData, assets = []
 
   const reportTabs = getReportTabs();
 
-  // Prepare data
-  const monthlyData = ['2025-01', '2025-02', '2025-03'].map(month => {
+  // Prepare data - dynamically get all available months
+  const allMonthKeys = [...new Set([
+    ...Object.keys(companyBudget.monthly || {}),
+    ...Object.keys(companyActuals.monthly || {})
+  ])].sort();
+
+  const monthlyData = allMonthKeys.map(month => {
     const budget = companyBudget.monthly?.[month] || {};
     const actual = companyActuals.monthly?.[month] || {};
+    const budgetedRev = companyBudgetedRevenue.monthly?.[month] || {};
     return {
-      month: new Date(month + '-01').toLocaleDateString('en-ZA', { month: 'short' }),
+      monthKey: month,
+      month: new Date(month + '-01').toLocaleDateString('en-ZA', { month: 'short', year: '2-digit' }),
       budgetRevenue: budget.revenue || 0,
       actualRevenue: actual.revenue || 0,
+      budgetedRevenueTarget: budgetedRev.totalRevenue || budgetedRev.target || 0,
       budgetExpenses: Object.entries(budget).filter(([k]) => k !== 'revenue').reduce((s, [,v]) => s + v, 0),
       actualExpenses: Object.entries(actual).filter(([k]) => k !== 'revenue').reduce((s, [,v]) => s + v, 0),
       budgetDepreciation: budget.depreciation || 0,
@@ -5621,6 +5696,59 @@ const ReportsModule = ({ company, config, budgets, actuals, yoyData, assets = []
             { metric: 'Operating Profit Margin', value: `${((beRevenue - beVariableCosts - beFixedCosts) / beRevenue * 100).toFixed(1)}%`, notes: '' },
           ]
         };
+      case 'budgetedRevenue':
+        const brMonthlyExport = companyBudgetedRevenue.monthly || {};
+        return {
+          title: 'Budgeted Revenue Report',
+          headers: [
+            { key: 'month', label: 'Month', align: 'left' },
+            { key: 'target', label: 'Revenue Target', align: 'right' },
+            { key: 'actual', label: 'Actual Revenue', align: 'right' },
+            { key: 'variance', label: 'Variance', align: 'right' },
+            { key: 'varPct', label: 'Var %', align: 'right' },
+            { key: 'trips', label: 'Trips Planned', align: 'right' },
+            { key: 'avgTrip', label: 'Avg/Trip', align: 'right' },
+          ],
+          data: allMonthKeys.map(mk => {
+            const br = brMonthlyExport[mk] || {};
+            const target = br.totalRevenue || br.target || 0;
+            const actual = (companyActuals.monthly?.[mk] || {}).revenue || 0;
+            return {
+              month: new Date(mk + '-01').toLocaleDateString('en-ZA', { month: 'short', year: 'numeric' }),
+              target: `R ${target.toLocaleString()}`,
+              actual: `R ${actual.toLocaleString()}`,
+              variance: `R ${(actual - target).toLocaleString()}`,
+              varPct: `${target ? ((actual - target) / target * 100).toFixed(1) : 0}%`,
+              trips: br.tripsPlanned || 0,
+              avgTrip: `R ${(br.avgRevenuePerTrip || 0).toLocaleString()}`,
+            };
+          })
+        };
+      case 'jobsReport':
+        return {
+          title: 'Jobs Report',
+          headers: [
+            { key: 'jobNo', label: 'Job No', align: 'left' },
+            { key: 'date', label: 'Date', align: 'left' },
+            { key: 'customer', label: 'Customer', align: 'left' },
+            { key: 'route', label: 'Route', align: 'left' },
+            { key: 'revenue', label: 'Revenue', align: 'right' },
+            { key: 'costs', label: 'Total Costs', align: 'right' },
+            { key: 'profit', label: 'Profit', align: 'right' },
+            { key: 'status', label: 'Status', align: 'left' },
+          ],
+          data: jobs.map(j => {
+            const jc = (j.fuelCost||0)+(j.tollCost||0)+(j.repairsCost||0)+(j.tyresCost||0)+(j.travelAllowance||0)+(j.parkingFees||0)+(j.depreciationCost||0)+(j.licensingCost||0)+(j.insuranceCost||0)+(j.loadingCost||0)+(j.otherCosts||0);
+            return {
+              jobNo: j.jobNo, date: j.date, customer: j.customer,
+              route: `${j.origin} → ${j.destination}`,
+              revenue: `R ${(j.revenue||0).toLocaleString()}`,
+              costs: `R ${jc.toLocaleString()}`,
+              profit: `R ${((j.revenue||0) - jc).toLocaleString()}`,
+              status: j.status,
+            };
+          })
+        };
       default:
         return {
           title: 'Report',
@@ -5707,6 +5835,245 @@ const ReportsModule = ({ company, config, budgets, actuals, yoyData, assets = []
               </ComposedChart>
             </ResponsiveContainer>
           </div>
+        </div>
+      )}
+
+      {/* Budgeted Revenue Report */}
+      {activeReport === 'budgetedRevenue' && (
+        <div className="space-y-6">
+          {/* Budgeted Revenue KPIs */}
+          {(() => {
+            const brMonthly = companyBudgetedRevenue.monthly || {};
+            const selectedBR = brMonthly[filterMonth] || {};
+            const budgetRev = (companyBudget.monthly?.[filterMonth] || {}).revenue || 0;
+            const actualRev = (companyActuals.monthly?.[filterMonth] || {}).revenue || 0;
+            const targetRev = selectedBR.totalRevenue || selectedBR.target || 0;
+            const tripsPlanned = selectedBR.tripsPlanned || 0;
+            const avgPerTrip = selectedBR.avgRevenuePerTrip || 0;
+            return (
+              <>
+                <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+                  <KPICard title="Budgeted Revenue" value={`R ${targetRev.toLocaleString()}`} icon={<Icons.DollarSign />} color="blue" trend={budgetRev ? ((targetRev - budgetRev) / budgetRev * 100) : 0} trendLabel="vs expense budget" />
+                  <KPICard title="Actual Revenue" value={`R ${actualRev.toLocaleString()}`} icon={<Icons.TrendingUp />} color="emerald" trend={targetRev ? ((actualRev - targetRev) / targetRev * 100) : 0} trendLabel="vs target" />
+                  <KPICard title="Variance" value={`R ${(actualRev - targetRev).toLocaleString()}`} icon={<Icons.BarChart3 />} color={actualRev >= targetRev ? 'emerald' : 'red'} />
+                  <KPICard title="Trips Planned" value={tripsPlanned} icon={<Icons.Truck />} color="amber" />
+                  <KPICard title="Avg/Trip" value={`R ${avgPerTrip.toLocaleString()}`} icon={<Icons.Calculator />} color="purple" />
+                </div>
+
+                {/* Monthly Budgeted Revenue Table */}
+                <div className="bg-white rounded-xl border shadow-sm overflow-hidden">
+                  <div className="p-4 border-b bg-slate-50">
+                    <h3 className="font-semibold">Monthly Budgeted Revenue vs Actuals</h3>
+                  </div>
+                  <div className="overflow-x-auto">
+                    <table className="w-full">
+                      <thead className="bg-slate-50 border-b">
+                        <tr>
+                          <th className="px-4 py-3 text-left text-xs font-medium text-slate-600">Month</th>
+                          <th className="px-4 py-3 text-right text-xs font-medium text-slate-600">Revenue Target</th>
+                          <th className="px-4 py-3 text-right text-xs font-medium text-slate-600">Actual Revenue</th>
+                          <th className="px-4 py-3 text-right text-xs font-medium text-slate-600">Variance</th>
+                          <th className="px-4 py-3 text-right text-xs font-medium text-slate-600">Var %</th>
+                          <th className="px-4 py-3 text-right text-xs font-medium text-slate-600">Trips Planned</th>
+                          <th className="px-4 py-3 text-right text-xs font-medium text-slate-600">Avg/Trip</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {allMonthKeys.map(mk => {
+                          const br = brMonthly[mk] || {};
+                          const target = br.totalRevenue || br.target || 0;
+                          const actual = (companyActuals.monthly?.[mk] || {}).revenue || 0;
+                          const variance = actual - target;
+                          const varPct = target ? (variance / target * 100) : 0;
+                          return (
+                            <tr key={mk} className={`border-b hover:bg-slate-50 ${mk === filterMonth ? 'bg-blue-50' : ''}`}>
+                              <td className="px-4 py-3 text-sm font-medium">{new Date(mk + '-01').toLocaleDateString('en-ZA', { month: 'short', year: 'numeric' })}</td>
+                              <td className="px-4 py-3 text-sm text-right">R {target.toLocaleString()}</td>
+                              <td className="px-4 py-3 text-sm text-right font-semibold">R {actual.toLocaleString()}</td>
+                              <td className={`px-4 py-3 text-sm text-right font-bold ${variance >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>R {variance.toLocaleString()}</td>
+                              <td className={`px-4 py-3 text-sm text-right ${varPct >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>{varPct.toFixed(1)}%</td>
+                              <td className="px-4 py-3 text-sm text-right">{br.tripsPlanned || 0}</td>
+                              <td className="px-4 py-3 text-sm text-right">R {(br.avgRevenuePerTrip || 0).toLocaleString()}</td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+
+                {/* Per Truck Budgeted Revenue */}
+                {companyBudgetedRevenue.byTruck && Object.keys(companyBudgetedRevenue.byTruck).length > 0 && (
+                  <div className="bg-white rounded-xl border shadow-sm overflow-hidden">
+                    <div className="p-4 border-b bg-slate-50">
+                      <h3 className="font-semibold">Budgeted Revenue by Truck</h3>
+                    </div>
+                    <div className="overflow-x-auto">
+                      <table className="w-full">
+                        <thead className="bg-slate-50 border-b">
+                          <tr>
+                            <th className="px-4 py-3 text-left text-xs font-medium text-slate-600">Truck</th>
+                            <th className="px-4 py-3 text-left text-xs font-medium text-slate-600">Driver</th>
+                            <th className="px-4 py-3 text-right text-xs font-medium text-slate-600">Monthly Target</th>
+                            <th className="px-4 py-3 text-right text-xs font-medium text-slate-600">Annual Target</th>
+                            <th className="px-4 py-3 text-right text-xs font-medium text-slate-600">Annual Trips</th>
+                            <th className="px-4 py-3 text-right text-xs font-medium text-slate-600">Avg/Trip</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {Object.entries(companyBudgetedRevenue.byTruck).map(([truckId, truck]) => {
+                            const monthlyTarget = truck.monthly?.[filterMonth]?.revenue || 0;
+                            return (
+                              <tr key={truckId} className="border-b hover:bg-slate-50">
+                                <td className="px-4 py-3 text-sm font-bold text-blue-600">{truck.truckName || truckId}</td>
+                                <td className="px-4 py-3 text-sm">{truck.driver || '-'}</td>
+                                <td className="px-4 py-3 text-sm text-right font-semibold">R {monthlyTarget.toLocaleString()}</td>
+                                <td className="px-4 py-3 text-sm text-right">R {(truck.annual?.revenue || 0).toLocaleString()}</td>
+                                <td className="px-4 py-3 text-sm text-right">{truck.annual?.trips || 0}</td>
+                                <td className="px-4 py-3 text-sm text-right">R {(truck.annual?.avgPerTrip || 0).toLocaleString()}</td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                )}
+
+                {/* Chart: Budgeted vs Actual Revenue Trend */}
+                <div className="bg-white rounded-xl border p-6 chart-container">
+                  <h3 className="font-semibold mb-4">Budgeted Revenue vs Actual Revenue Trend</h3>
+                  <ResponsiveContainer width="100%" height={300}>
+                    <ComposedChart data={monthlyData.map(m => ({
+                      ...m,
+                      budgetedTarget: m.budgetedRevenueTarget,
+                    }))}>
+                      <CartesianGrid strokeDasharray="3 3" />
+                      <XAxis dataKey="month" />
+                      <YAxis tickFormatter={(v) => `R${(v/1000).toFixed(0)}k`} />
+                      <Tooltip formatter={(v) => `R ${v.toLocaleString()}`} />
+                      <Legend />
+                      <Bar dataKey="budgetedTarget" fill="#93c5fd" name="Revenue Target" />
+                      <Bar dataKey="actualRevenue" fill="#3b82f6" name="Actual Revenue" />
+                      <Line type="monotone" dataKey="budgetRevenue" stroke="#f59e0b" strokeWidth={2} strokeDasharray="5 5" name="Budget Revenue" />
+                    </ComposedChart>
+                  </ResponsiveContainer>
+                </div>
+              </>
+            );
+          })()}
+        </div>
+      )}
+
+      {/* Jobs Report */}
+      {activeReport === 'jobsReport' && (
+        <div className="space-y-6">
+          {(() => {
+            const completedJobs = jobs.filter(j => j.status === 'Completed');
+            const totalJobRevenue = jobs.reduce((s, j) => s + (j.revenue || 0), 0);
+            const totalJobCosts = jobs.reduce((s, j) => {
+              return s + (j.fuelCost || 0) + (j.tollCost || 0) + (j.repairsCost || 0) + (j.tyresCost || 0) + (j.travelAllowance || 0) + (j.parkingFees || 0) + (j.depreciationCost || 0) + (j.licensingCost || 0) + (j.insuranceCost || 0) + (j.loadingCost || 0) + (j.otherCosts || 0);
+            }, 0);
+            const totalProfit = totalJobRevenue - totalJobCosts;
+
+            // Group jobs by month
+            const jobsByMonth = {};
+            jobs.forEach(j => {
+              const monthKey = j.date ? j.date.substring(0, 7) : 'unknown';
+              if (!jobsByMonth[monthKey]) jobsByMonth[monthKey] = [];
+              jobsByMonth[monthKey].push(j);
+            });
+
+            return (
+              <>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                  <KPICard title="Total Jobs" value={jobs.length} icon={<Icons.Clipboard />} color="blue" />
+                  <KPICard title="Completed" value={completedJobs.length} icon={<Icons.Check />} color="emerald" />
+                  <KPICard title="Total Revenue" value={`R ${totalJobRevenue.toLocaleString()}`} icon={<Icons.DollarSign />} color="amber" />
+                  <KPICard title="Gross Profit" value={`R ${totalProfit.toLocaleString()}`} icon={<Icons.TrendingUp />} color={totalProfit >= 0 ? 'emerald' : 'red'} />
+                </div>
+
+                {/* Jobs Detail Table */}
+                <div className="bg-white rounded-xl border shadow-sm overflow-hidden">
+                  <div className="p-4 border-b bg-slate-50">
+                    <h3 className="font-semibold">Jobs Revenue & Cost Breakdown</h3>
+                  </div>
+                  <div className="overflow-x-auto">
+                    <table className="w-full">
+                      <thead className="bg-slate-50 border-b">
+                        <tr>
+                          <th className="px-3 py-3 text-left text-xs font-medium text-slate-600">Job No</th>
+                          <th className="px-3 py-3 text-left text-xs font-medium text-slate-600">Date</th>
+                          <th className="px-3 py-3 text-left text-xs font-medium text-slate-600">Customer</th>
+                          <th className="px-3 py-3 text-left text-xs font-medium text-slate-600">Route</th>
+                          <th className="px-3 py-3 text-right text-xs font-medium text-slate-600">Revenue</th>
+                          <th className="px-3 py-3 text-right text-xs font-medium text-slate-600">Fuel</th>
+                          <th className="px-3 py-3 text-right text-xs font-medium text-slate-600">Tolls</th>
+                          <th className="px-3 py-3 text-right text-xs font-medium text-slate-600">Repairs</th>
+                          <th className="px-3 py-3 text-right text-xs font-medium text-slate-600">Tyres</th>
+                          <th className="px-3 py-3 text-right text-xs font-medium text-slate-600">Other</th>
+                          <th className="px-3 py-3 text-right text-xs font-medium text-slate-600">Total Cost</th>
+                          <th className="px-3 py-3 text-right text-xs font-medium text-slate-600">Profit</th>
+                          <th className="px-3 py-3 text-center text-xs font-medium text-slate-600">Status</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {jobs.map(job => {
+                          const jCosts = (job.fuelCost || 0) + (job.tollCost || 0) + (job.repairsCost || 0) + (job.tyresCost || 0) + (job.travelAllowance || 0) + (job.parkingFees || 0) + (job.depreciationCost || 0) + (job.licensingCost || 0) + (job.insuranceCost || 0) + (job.loadingCost || 0) + (job.otherCosts || 0);
+                          const jProfit = (job.revenue || 0) - jCosts;
+                          return (
+                            <tr key={job.id} className="border-b hover:bg-slate-50 text-xs">
+                              <td className="px-3 py-2 font-bold text-blue-600">{job.jobNo}</td>
+                              <td className="px-3 py-2">{job.date}</td>
+                              <td className="px-3 py-2">{job.customer}</td>
+                              <td className="px-3 py-2">{job.origin} → {job.destination}</td>
+                              <td className="px-3 py-2 text-right font-semibold">R {(job.revenue || 0).toLocaleString()}</td>
+                              <td className="px-3 py-2 text-right">R {(job.fuelCost || 0).toLocaleString()}</td>
+                              <td className="px-3 py-2 text-right">R {(job.tollCost || 0).toLocaleString()}</td>
+                              <td className="px-3 py-2 text-right">R {(job.repairsCost || 0).toLocaleString()}</td>
+                              <td className="px-3 py-2 text-right">R {(job.tyresCost || 0).toLocaleString()}</td>
+                              <td className="px-3 py-2 text-right">R {(job.otherCosts || 0).toLocaleString()}</td>
+                              <td className="px-3 py-2 text-right text-red-600 font-semibold">R {jCosts.toLocaleString()}</td>
+                              <td className={`px-3 py-2 text-right font-bold ${jProfit >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>R {jProfit.toLocaleString()}</td>
+                              <td className="px-3 py-2 text-center">
+                                <Badge variant={job.status === 'Completed' ? 'success' : job.status === 'In Transit' ? 'info' : job.status === 'Scheduled' ? 'warning' : 'danger'}>
+                                  {job.status}
+                                </Badge>
+                              </td>
+                            </tr>
+                          );
+                        })}
+                        {jobs.length === 0 && (
+                          <tr><td colSpan={13} className="px-4 py-8 text-center text-slate-500">No jobs recorded</td></tr>
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+
+                {/* Monthly Jobs Summary */}
+                <div className="bg-white rounded-xl border p-6 chart-container">
+                  <h3 className="font-semibold mb-4">Jobs Revenue by Month</h3>
+                  <ResponsiveContainer width="100%" height={280}>
+                    <BarChart data={Object.entries(jobsByMonth).sort(([a],[b]) => a.localeCompare(b)).map(([month, monthJobs]) => ({
+                      month: new Date(month + '-01').toLocaleDateString('en-ZA', { month: 'short', year: '2-digit' }),
+                      revenue: monthJobs.reduce((s, j) => s + (j.revenue || 0), 0),
+                      costs: monthJobs.reduce((s, j) => s + (j.fuelCost || 0) + (j.tollCost || 0) + (j.repairsCost || 0) + (j.tyresCost || 0) + (j.travelAllowance || 0) + (j.parkingFees || 0) + (j.depreciationCost || 0) + (j.licensingCost || 0) + (j.insuranceCost || 0) + (j.loadingCost || 0) + (j.otherCosts || 0), 0),
+                      jobs: monthJobs.length,
+                    }))}>
+                      <CartesianGrid strokeDasharray="3 3" />
+                      <XAxis dataKey="month" />
+                      <YAxis tickFormatter={(v) => `R${(v/1000).toFixed(0)}k`} />
+                      <Tooltip formatter={(v, name) => name === 'jobs' ? v : `R ${v.toLocaleString()}`} />
+                      <Legend />
+                      <Bar dataKey="revenue" fill="#3b82f6" name="Revenue" />
+                      <Bar dataKey="costs" fill="#ef4444" name="Costs" />
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+              </>
+            );
+          })()}
         </div>
       )}
 

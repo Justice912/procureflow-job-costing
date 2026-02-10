@@ -450,6 +450,7 @@ const industryCategories = {
     { id: 'travelAllowance', name: 'Travel Allowance', icon: 'MapPin', type: 'direct' },
     { id: 'parking', name: 'Parking Fees', icon: 'ParkingCircle', type: 'direct' },
     { id: 'depreciation', name: 'Depreciation', icon: 'TrendingDown', type: 'direct' },
+    { id: 'loadingUnloading', name: 'Loading & Unloading', icon: 'Package', type: 'direct' },
     { id: 'licensing', name: 'Licensing & Permits', icon: 'FileText', type: 'indirect' },
     { id: 'insurance', name: 'Insurance', icon: 'Shield', type: 'indirect' },
     { id: 'adminSalaries', name: 'Admin Salaries', icon: 'User', type: 'admin' },
@@ -1809,6 +1810,89 @@ export default function MultiCompanyJobCosting() {
     }
   }, [jobs, dataLoaded]);
 
+  // Auto-populate actuals from Jobs data for haulage companies
+  // Maps job cost fields to actuals category IDs
+  const jobToActualsMap = {
+    fuelCost: 'fuel',
+    tollCost: 'tollFees',
+    repairsCost: 'repairs',
+    tyresCost: 'tyres',
+    travelAllowance: 'travelAllowance',
+    parkingFees: 'parking',
+    depreciationCost: 'depreciation',
+    loadingCost: 'loadingUnloading',
+  };
+
+  useEffect(() => {
+    if (!dataLoaded) return;
+    const haulageCompanies = companies.filter(c => c.industry === 'haulage');
+    if (haulageCompanies.length === 0) return;
+
+    let updated = false;
+    const newActuals = { ...actuals };
+
+    haulageCompanies.forEach(company => {
+      const companyJobs = jobs[company.id]?.jobs || [];
+      if (companyJobs.length === 0) return;
+
+      // Group jobs by month
+      const jobsByMonth = {};
+      companyJobs.forEach(j => {
+        const monthKey = j.date ? j.date.substring(0, 7) : null;
+        if (!monthKey) return;
+        if (!jobsByMonth[monthKey]) jobsByMonth[monthKey] = [];
+        jobsByMonth[monthKey].push(j);
+      });
+
+      // For each month, aggregate revenue and direct costs from jobs
+      Object.entries(jobsByMonth).forEach(([monthKey, monthJobs]) => {
+        const aggregated = { revenue: 0 };
+        Object.values(jobToActualsMap).forEach(catId => { aggregated[catId] = 0; });
+
+        monthJobs.forEach(j => {
+          aggregated.revenue += (j.revenue || 0);
+          Object.entries(jobToActualsMap).forEach(([jobField, catId]) => {
+            aggregated[catId] += (j[jobField] || 0);
+          });
+        });
+
+        // Merge: auto values for revenue + direct job costs, keep manual values for indirect/admin
+        const existingMonth = actuals[company.id]?.monthly?.[monthKey] || {};
+        const mergedMonth = { ...existingMonth };
+
+        // Update revenue and mapped direct costs from jobs
+        let monthChanged = false;
+        if (Math.round(mergedMonth.revenue || 0) !== Math.round(aggregated.revenue)) {
+          mergedMonth.revenue = Math.round(aggregated.revenue);
+          monthChanged = true;
+        }
+        Object.values(jobToActualsMap).forEach(catId => {
+          if (Math.round(mergedMonth[catId] || 0) !== Math.round(aggregated[catId])) {
+            mergedMonth[catId] = Math.round(aggregated[catId]);
+            monthChanged = true;
+          }
+        });
+
+        if (monthChanged) {
+          updated = true;
+          if (!newActuals[company.id]) newActuals[company.id] = {};
+          if (!newActuals[company.id].monthly) newActuals[company.id].monthly = {};
+          newActuals[company.id] = {
+            ...newActuals[company.id],
+            monthly: {
+              ...newActuals[company.id].monthly,
+              [monthKey]: mergedMonth
+            }
+          };
+        }
+      });
+    });
+
+    if (updated) {
+      setActuals(newActuals);
+    }
+  }, [jobs, dataLoaded, companies]);
+
   useEffect(() => {
     if (dataLoaded) {
       saveDataWithSync('budgetedRevenue', budgetedRevenue);
@@ -1961,7 +2045,7 @@ export default function MultiCompanyJobCosting() {
           fleet={fleet[selectedCompany.id] || { trucks: [], trailers: [] }}
         />;
       case 'actuals':
-        return <ActualsModule company={selectedCompany} config={config} actuals={actuals} setActuals={setActuals} categories={categories} />;
+        return <ActualsModule company={selectedCompany} config={config} actuals={actuals} setActuals={setActuals} categories={categories} jobs={jobs[selectedCompany.id]?.jobs || []} jobToActualsMap={jobToActualsMap} />;
       case 'budgets':
         return <BudgetsModule company={selectedCompany} config={config} budgets={budgets} setBudgets={setBudgets} categories={categories} />;
       case 'budgeted-revenue':
@@ -3206,13 +3290,19 @@ const JobForm = ({ job, trucks, trailers, onSave, onCancel }) => {
 };
 
 // Actuals Module
-const ActualsModule = ({ company, config, actuals, setActuals, categories }) => {
+const ActualsModule = ({ company, config, actuals, setActuals, categories, jobs = [], jobToActualsMap = {} }) => {
   const [activeTab, setActiveTab] = useState('all');
   const [selectedMonth, setSelectedMonth] = useState('2025-01');
   const [showEntryModal, setShowEntryModal] = useState(false);
   const [editCategory, setEditCategory] = useState(null);
-  
+
   const companyActuals = actuals[company.id]?.monthly?.[selectedMonth] || {};
+  const isHaulage = company.industry === 'haulage';
+
+  // Categories auto-populated from Jobs (revenue + mapped direct costs)
+  const autoFromJobsCategoryIds = isHaulage ? new Set(Object.values(jobToActualsMap)) : new Set();
+  const isCategoryAutoFromJobs = (catId) => isHaulage && autoFromJobsCategoryIds.has(catId);
+  const monthJobs = isHaulage ? jobs.filter(j => j.date && j.date.startsWith(selectedMonth)) : [];
 
   // Group categories by type
   const directCosts = categories.filter(c => c.type === 'direct');
@@ -3240,17 +3330,24 @@ const ActualsModule = ({ company, config, actuals, setActuals, categories }) => 
   const indirectTotal = indirectCosts.reduce((s, c) => s + (companyActuals[c.id] || 0), 0);
   const adminTotal = adminCosts.reduce((s, c) => s + (companyActuals[c.id] || 0), 0);
 
+  // Get manually editable categories for the current tab
+  const getEditableCategories = () => {
+    return getFilteredCategories().filter(c => !isCategoryAutoFromJobs(c.id));
+  };
+
   const handleAddEntry = () => {
     setEditCategory(null);
     setShowEntryModal(true);
   };
 
   const handleEditCategory = (cat) => {
+    if (isCategoryAutoFromJobs(cat.id)) return;
     setEditCategory({ ...cat, amount: companyActuals[cat.id] || 0 });
     setShowEntryModal(true);
   };
 
   const handleSaveEntry = (categoryId, amount) => {
+    if (isCategoryAutoFromJobs(categoryId)) return;
     const updatedActuals = {
       ...actuals,
       [company.id]: {
@@ -3270,6 +3367,7 @@ const ActualsModule = ({ company, config, actuals, setActuals, categories }) => 
   };
 
   const handleDeleteEntry = (categoryId) => {
+    if (isCategoryAutoFromJobs(categoryId)) return;
     if (confirm('Are you sure you want to delete this entry?')) {
       const updatedActuals = {
         ...actuals,
@@ -3293,7 +3391,7 @@ const ActualsModule = ({ company, config, actuals, setActuals, categories }) => 
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-2xl font-bold text-slate-900">Actuals</h2>
-          <p className="text-slate-500">Record actual expenses for {config.label}</p>
+          <p className="text-slate-500">{isHaulage ? 'Revenue & direct costs auto-populated from Jobs' : `Record actual expenses for ${config.label}`}</p>
         </div>
         <div className="flex gap-3">
           <MonthYearSelector value={selectedMonth} onChange={e => setSelectedMonth(e.target.value)} />
@@ -3339,6 +3437,20 @@ const ActualsModule = ({ company, config, actuals, setActuals, categories }) => 
         </div>
       </div>
 
+      {/* Info Banner for Haulage */}
+      {isHaulage && (
+        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 flex items-start gap-3">
+          <Icons.Info className="text-blue-600 mt-0.5 flex-shrink-0" />
+          <div className="text-sm">
+            <p className="font-semibold text-blue-900">Revenue & direct costs are auto-populated from Jobs</p>
+            <p className="text-blue-700 mt-1">
+              {monthJobs.length} job{monthJobs.length !== 1 ? 's' : ''} found for {new Date(selectedMonth + '-01').toLocaleDateString('en-ZA', { month: 'long', year: 'numeric' })}.
+              Enter jobs in the Jobs tab and they will automatically appear here. You can manually enter indirect and admin costs below.
+            </p>
+          </div>
+        </div>
+      )}
+
       {/* Summary Cards */}
       <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
         <KPICard title="Total Revenue" value={`R ${(companyActuals.revenue || 0).toLocaleString()}`} icon={<Icons.DollarSign />} color="emerald" />
@@ -3362,15 +3474,18 @@ const ActualsModule = ({ company, config, actuals, setActuals, categories }) => 
       <div className="bg-white rounded-xl border shadow-sm overflow-hidden">
         <div className="p-4 border-b bg-slate-50 flex justify-between items-center">
           <h3 className="font-semibold">{tabs.find(t => t.id === activeTab)?.name}</h3>
-          <button onClick={handleAddEntry} className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 text-sm">
-            <Icons.Plus />Add Entry
-          </button>
+          {getEditableCategories().length > 0 && (
+            <button onClick={handleAddEntry} className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 text-sm">
+              <Icons.Plus />Add Entry
+            </button>
+          )}
         </div>
         <table className="w-full">
           <thead className="bg-slate-50 border-b">
             <tr>
               <th className="px-4 py-3 text-left text-xs font-medium text-slate-600">Category</th>
               <th className="px-4 py-3 text-left text-xs font-medium text-slate-600">Type</th>
+              <th className="px-4 py-3 text-left text-xs font-medium text-slate-600">Source</th>
               <th className="px-4 py-3 text-right text-xs font-medium text-slate-600">Amount (R)</th>
               <th className="px-4 py-3 text-right text-xs font-medium text-slate-600">% of Total</th>
               <th className="px-4 py-3 text-center text-xs font-medium text-slate-600">Actions</th>
@@ -3380,21 +3495,33 @@ const ActualsModule = ({ company, config, actuals, setActuals, categories }) => 
             {getFilteredCategories().map(cat => {
               const amount = companyActuals[cat.id] || 0;
               const percent = totalExpenses ? (amount / totalExpenses * 100) : 0;
+              const isAuto = isCategoryAutoFromJobs(cat.id);
               return (
-                <tr key={cat.id} className="border-b hover:bg-slate-50">
+                <tr key={cat.id} className={`border-b hover:bg-slate-50 ${isAuto ? 'bg-blue-50/30' : ''}`}>
                   <td className="px-4 py-3 text-sm font-medium">{cat.name}</td>
                   <td className="px-4 py-3 text-sm">
                     <Badge variant={cat.type === 'direct' ? 'danger' : cat.type === 'indirect' ? 'warning' : 'purple'}>
                       {cat.type}
                     </Badge>
                   </td>
+                  <td className="px-4 py-3 text-sm">
+                    {isAuto ? (
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-blue-100 text-blue-700 text-xs font-medium rounded-full">From Jobs</span>
+                    ) : (
+                      <span className="text-xs text-slate-400">Manual</span>
+                    )}
+                  </td>
                   <td className="px-4 py-3 text-sm text-right font-semibold">R {amount.toLocaleString()}</td>
                   <td className="px-4 py-3 text-sm text-right text-slate-500">{percent.toFixed(1)}%</td>
                   <td className="px-4 py-3">
-                    <div className="flex justify-center gap-1">
-                      <button onClick={() => handleEditCategory(cat)} className="p-1.5 text-blue-600 hover:bg-blue-50 rounded"><Icons.Edit /></button>
-                      <button onClick={() => handleDeleteEntry(cat.id)} className="p-1.5 text-red-600 hover:bg-red-50 rounded"><Icons.Trash /></button>
-                    </div>
+                    {isAuto ? (
+                      <span className="text-xs text-slate-400 flex justify-center">Auto</span>
+                    ) : (
+                      <div className="flex justify-center gap-1">
+                        <button onClick={() => handleEditCategory(cat)} className="p-1.5 text-blue-600 hover:bg-blue-50 rounded"><Icons.Edit /></button>
+                        <button onClick={() => handleDeleteEntry(cat.id)} className="p-1.5 text-red-600 hover:bg-red-50 rounded"><Icons.Trash /></button>
+                      </div>
+                    )}
                   </td>
                 </tr>
               );
@@ -3402,7 +3529,7 @@ const ActualsModule = ({ company, config, actuals, setActuals, categories }) => 
           </tbody>
           <tfoot className="bg-slate-100">
             <tr>
-              <td colSpan={2} className="px-4 py-3 text-sm font-bold">TOTAL</td>
+              <td colSpan={3} className="px-4 py-3 text-sm font-bold">TOTAL</td>
               <td className="px-4 py-3 text-sm text-right font-bold">
                 R {getFilteredCategories().reduce((s, c) => s + (companyActuals[c.id] || 0), 0).toLocaleString()}
               </td>
@@ -3415,15 +3542,15 @@ const ActualsModule = ({ company, config, actuals, setActuals, categories }) => 
         </table>
       </div>
 
-      {/* Entry Modal */}
-      <Modal isOpen={showEntryModal} onClose={() => { setShowEntryModal(false); setEditCategory(null); }} 
+      {/* Entry Modal - only shows manually editable categories */}
+      <Modal isOpen={showEntryModal} onClose={() => { setShowEntryModal(false); setEditCategory(null); }}
         title={editCategory ? `Edit ${editCategory.name}` : 'Add Expense Entry'} size="md">
-        <ActualEntryForm 
-          categories={getFilteredCategories()} 
+        <ActualEntryForm
+          categories={getEditableCategories()}
           editCategory={editCategory}
           currentValues={companyActuals}
-          onSave={handleSaveEntry} 
-          onCancel={() => { setShowEntryModal(false); setEditCategory(null); }} 
+          onSave={handleSaveEntry}
+          onCancel={() => { setShowEntryModal(false); setEditCategory(null); }}
         />
       </Modal>
     </div>

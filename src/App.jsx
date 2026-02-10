@@ -5586,15 +5586,100 @@ const ReportsModule = ({ company, config, budgets, actuals, budgetedRevenue = {}
     };
   });
 
-  const truckData = Object.entries(companyBudget.byTruck || {}).map(([truck, budget]) => {
-    const actual = companyActuals.byTruck?.[truck] || {};
-    return { truck, ...budget, actualRevenue: actual.revenue || 0, actualFuel: actual.fuel || 0, actualRepairs: actual.repairs || 0 };
-  });
+  const truckData = (() => {
+    // Aggregate actual data from jobs by truck
+    const truckMap = {};
+    jobs.forEach(j => {
+      if (!j.truck) return;
+      if (!truckMap[j.truck]) truckMap[j.truck] = { truck: j.truck, revenue: 0, fuel: 0, repairs: 0, tolls: 0, trips: 0, distance: 0, totalCosts: 0 };
+      truckMap[j.truck].revenue += (j.revenue || 0);
+      truckMap[j.truck].fuel += (j.fuelCost || 0);
+      truckMap[j.truck].repairs += (j.repairsCost || 0);
+      truckMap[j.truck].tolls += (j.tollCost || 0);
+      truckMap[j.truck].trips += 1;
+      truckMap[j.truck].distance += (j.distance || 0);
+      truckMap[j.truck].totalCosts += (j.fuelCost||0)+(j.tollCost||0)+(j.repairsCost||0)+(j.tyresCost||0)+(j.travelAllowance||0)+(j.parkingFees||0)+(j.depreciationCost||0)+(j.licensingCost||0)+(j.insuranceCost||0)+(j.loadingCost||0)+(j.otherCosts||0);
+    });
+    // Merge with budget data if available
+    const budgetTrucks = companyBudget.byTruck || {};
+    const allTrucks = new Set([...Object.keys(truckMap), ...Object.keys(budgetTrucks)]);
+    return [...allTrucks].map(truck => {
+      const budget = budgetTrucks[truck] || {};
+      const actual = truckMap[truck] || {};
+      return {
+        truck,
+        revenue: budget.revenue || 0,
+        fuel: budget.fuel || 0,
+        depreciation: budget.depreciation || 0,
+        actualRevenue: actual.revenue || 0,
+        actualFuel: actual.fuel || 0,
+        actualRepairs: actual.repairs || 0,
+        actualTotalCosts: actual.totalCosts || 0,
+        actualTrips: actual.trips || 0,
+        actualDistance: actual.distance || 0,
+        actualDepreciation: actual.totalCosts ? Math.round((budget.depreciation || 0) * 0.95) : 0,
+      };
+    });
+  })();
 
-  const routeData = Object.entries(companyBudget.byRoute || {}).map(([route, budget]) => {
-    const actual = companyActuals.byRoute?.[route] || {};
-    return { route, ...budget, actualRevenue: actual.revenue || 0, actualTrips: actual.trips || 0, actualFuel: actual.fuel || 0 };
-  });
+  const routeData = (() => {
+    // Aggregate actual data from jobs by route
+    const routeMap = {};
+    jobs.forEach(j => {
+      const routeKey = j.origin && j.destination ? `${j.origin}-${j.destination}` : null;
+      if (!routeKey) return;
+      if (!routeMap[routeKey]) routeMap[routeKey] = { route: routeKey, revenue: 0, fuel: 0, tolls: 0, trips: 0, distance: 0 };
+      routeMap[routeKey].revenue += (j.revenue || 0);
+      routeMap[routeKey].fuel += (j.fuelCost || 0);
+      routeMap[routeKey].tolls += (j.tollCost || 0);
+      routeMap[routeKey].trips += 1;
+      routeMap[routeKey].distance += (j.distance || 0);
+    });
+    // Merge with budget data if available
+    const budgetRoutes = companyBudget.byRoute || {};
+    const allRoutes = new Set([...Object.keys(routeMap), ...Object.keys(budgetRoutes)]);
+    return [...allRoutes].map(route => {
+      const budget = budgetRoutes[route] || {};
+      const actual = routeMap[route] || {};
+      return {
+        route,
+        revenue: budget.revenue || 0,
+        trips: budget.trips || 0,
+        fuel: budget.fuel || 0,
+        actualRevenue: actual.revenue || 0,
+        actualTrips: actual.trips || 0,
+        actualFuel: actual.fuel || 0,
+      };
+    });
+  })();
+
+  // Compute Year-on-Year data dynamically from monthly actuals and budgets
+  const computedYOY = (() => {
+    const years = {};
+    // Aggregate actuals by year
+    Object.entries(companyActuals.monthly || {}).forEach(([monthKey, data]) => {
+      const year = monthKey.substring(0, 4);
+      if (!years[year]) years[year] = { revenue: 0, expenses: 0, profit: 0, months: 0 };
+      const rev = data.revenue || 0;
+      const exp = Object.entries(data).filter(([k]) => k !== 'revenue').reduce((s, [,v]) => s + v, 0);
+      years[year].revenue += rev;
+      years[year].expenses += exp;
+      years[year].profit += (rev - exp);
+      years[year].months += 1;
+    });
+    // Budget totals by year
+    const budgetYears = {};
+    Object.entries(companyBudget.monthly || {}).forEach(([monthKey, data]) => {
+      const year = monthKey.substring(0, 4);
+      if (!budgetYears[year]) budgetYears[year] = { revenue: 0, expenses: 0, profit: 0 };
+      const rev = data.revenue || 0;
+      const exp = Object.entries(data).filter(([k]) => k !== 'revenue').reduce((s, [,v]) => s + v, 0);
+      budgetYears[year].revenue += rev;
+      budgetYears[year].expenses += exp;
+      budgetYears[year].profit += (rev - exp);
+    });
+    return { actuals: years, budgets: budgetYears };
+  })();
 
   // Export data generator based on active report
   const getExportData = () => {
@@ -6211,39 +6296,46 @@ const ReportsModule = ({ company, config, budgets, actuals, budgetedRevenue = {}
         <div className="space-y-6">
           <div className="bg-white rounded-xl border shadow-sm overflow-hidden">
             <div className="p-4 border-b bg-slate-50">
-              <h3 className="font-semibold">Budget vs Actual by Truck (Including Depreciation)</h3>
+              <h3 className="font-semibold">Revenue & Costs by Truck (From Jobs)</h3>
+              <p className="text-xs text-slate-500 mt-1">{truckData.length} trucks with data</p>
             </div>
-            <table className="w-full">
-              <thead className="bg-slate-50 border-b">
-                <tr>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-slate-600">Truck</th>
-                  <th className="px-4 py-3 text-right text-xs font-medium text-slate-600">Budget Rev</th>
-                  <th className="px-4 py-3 text-right text-xs font-medium text-slate-600">Actual Rev</th>
-                  <th className="px-4 py-3 text-right text-xs font-medium text-slate-600">Variance</th>
-                  <th className="px-4 py-3 text-right text-xs font-medium text-slate-600">Budget Fuel</th>
-                  <th className="px-4 py-3 text-right text-xs font-medium text-slate-600">Actual Fuel</th>
-                  <th className="px-4 py-3 text-right text-xs font-medium text-slate-600">Budget Dep</th>
-                  <th className="px-4 py-3 text-right text-xs font-medium text-slate-600">Actual Dep</th>
-                </tr>
-              </thead>
-              <tbody>
-                {truckData.map(t => {
-                  const revVar = ((t.actualRevenue - t.revenue) / t.revenue * 100);
-                  return (
-                    <tr key={t.truck} className="border-b hover:bg-slate-50">
-                      <td className="px-4 py-3 text-sm font-bold text-blue-600">{t.truck}</td>
-                      <td className="px-4 py-3 text-sm text-right">R {t.revenue?.toLocaleString()}</td>
-                      <td className="px-4 py-3 text-sm text-right font-semibold">R {t.actualRevenue?.toLocaleString()}</td>
-                      <td className={`px-4 py-3 text-sm text-right font-bold ${revVar >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>{revVar >= 0 ? '+' : ''}{revVar.toFixed(1)}%</td>
-                      <td className="px-4 py-3 text-sm text-right">R {t.fuel?.toLocaleString()}</td>
-                      <td className="px-4 py-3 text-sm text-right font-semibold">R {t.actualFuel?.toLocaleString()}</td>
-                      <td className="px-4 py-3 text-sm text-right text-amber-600">R {(t.depreciation || 0).toLocaleString()}</td>
-                      <td className="px-4 py-3 text-sm text-right font-semibold text-amber-600">R {(t.actualDepreciation || Math.round(t.depreciation * 0.95) || 0).toLocaleString()}</td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead className="bg-slate-50 border-b">
+                  <tr>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-slate-600">Truck</th>
+                    <th className="px-4 py-3 text-right text-xs font-medium text-slate-600">Trips</th>
+                    <th className="px-4 py-3 text-right text-xs font-medium text-slate-600">Revenue</th>
+                    <th className="px-4 py-3 text-right text-xs font-medium text-slate-600">Fuel</th>
+                    <th className="px-4 py-3 text-right text-xs font-medium text-slate-600">Repairs</th>
+                    <th className="px-4 py-3 text-right text-xs font-medium text-slate-600">Total Costs</th>
+                    <th className="px-4 py-3 text-right text-xs font-medium text-slate-600">Profit</th>
+                    <th className="px-4 py-3 text-right text-xs font-medium text-slate-600">Margin</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {truckData.map(t => {
+                    const profit = t.actualRevenue - t.actualTotalCosts;
+                    const margin = t.actualRevenue > 0 ? (profit / t.actualRevenue * 100) : 0;
+                    return (
+                      <tr key={t.truck} className="border-b hover:bg-slate-50">
+                        <td className="px-4 py-3 text-sm font-bold text-blue-600">{t.truck}</td>
+                        <td className="px-4 py-3 text-sm text-right">{t.actualTrips}</td>
+                        <td className="px-4 py-3 text-sm text-right font-semibold">R {t.actualRevenue.toLocaleString()}</td>
+                        <td className="px-4 py-3 text-sm text-right">R {t.actualFuel.toLocaleString()}</td>
+                        <td className="px-4 py-3 text-sm text-right">R {t.actualRepairs.toLocaleString()}</td>
+                        <td className="px-4 py-3 text-sm text-right text-red-600">R {t.actualTotalCosts.toLocaleString()}</td>
+                        <td className={`px-4 py-3 text-sm text-right font-bold ${profit >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>R {profit.toLocaleString()}</td>
+                        <td className={`px-4 py-3 text-sm text-right ${margin >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>{margin.toFixed(1)}%</td>
+                      </tr>
+                    );
+                  })}
+                  {truckData.length === 0 && (
+                    <tr><td colSpan={8} className="px-4 py-8 text-center text-slate-500">No truck data. Add jobs with truck assignments to see data here.</td></tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
           </div>
 
           <div className="bg-white rounded-xl border p-6">
@@ -6268,7 +6360,8 @@ const ReportsModule = ({ company, config, budgets, actuals, budgetedRevenue = {}
         <div className="space-y-6">
           <div className="bg-white rounded-xl border shadow-sm overflow-hidden">
             <div className="p-4 border-b bg-slate-50">
-              <h3 className="font-semibold">Budget vs Actual by Route</h3>
+              <h3 className="font-semibold">Revenue & Trips by Route (From Jobs)</h3>
+              <p className="text-xs text-slate-500 mt-1">{routeData.length} routes with data</p>
             </div>
             <table className="w-full">
               <thead className="bg-slate-50 border-b">
@@ -6278,28 +6371,28 @@ const ReportsModule = ({ company, config, budgets, actuals, budgetedRevenue = {}
                   <th className="px-4 py-3 text-right text-xs font-medium text-slate-600">Actual Trips</th>
                   <th className="px-4 py-3 text-right text-xs font-medium text-slate-600">Budget Revenue</th>
                   <th className="px-4 py-3 text-right text-xs font-medium text-slate-600">Actual Revenue</th>
-                  <th className="px-4 py-3 text-right text-xs font-medium text-slate-600">Variance</th>
-                  <th className="px-4 py-3 text-right text-xs font-medium text-slate-600">Rev/Trip Var</th>
+                  <th className="px-4 py-3 text-right text-xs font-medium text-slate-600">Actual Fuel</th>
+                  <th className="px-4 py-3 text-right text-xs font-medium text-slate-600">Rev/Trip</th>
                 </tr>
               </thead>
               <tbody>
                 {routeData.map(r => {
-                  const revVar = ((r.actualRevenue - r.revenue) / r.revenue * 100);
-                  const budgetPerTrip = r.trips ? r.revenue / r.trips : 0;
-                  const actualPerTrip = r.actualTrips ? r.actualRevenue / r.actualTrips : 0;
-                  const tripVar = budgetPerTrip ? ((actualPerTrip - budgetPerTrip) / budgetPerTrip * 100) : 0;
+                  const actualPerTrip = r.actualTrips ? Math.round(r.actualRevenue / r.actualTrips) : 0;
                   return (
                     <tr key={r.route} className="border-b hover:bg-slate-50">
                       <td className="px-4 py-3 text-sm font-bold text-blue-600">{r.route}</td>
-                      <td className="px-4 py-3 text-sm text-right">{r.trips}</td>
+                      <td className="px-4 py-3 text-sm text-right">{r.trips || '-'}</td>
                       <td className="px-4 py-3 text-sm text-right font-semibold">{r.actualTrips}</td>
-                      <td className="px-4 py-3 text-sm text-right">R {r.revenue?.toLocaleString()}</td>
-                      <td className="px-4 py-3 text-sm text-right font-semibold">R {r.actualRevenue?.toLocaleString()}</td>
-                      <td className={`px-4 py-3 text-sm text-right font-bold ${revVar >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>{revVar >= 0 ? '+' : ''}{revVar.toFixed(1)}%</td>
-                      <td className={`px-4 py-3 text-sm text-right font-bold ${tripVar >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>{tripVar >= 0 ? '+' : ''}{tripVar.toFixed(1)}%</td>
+                      <td className="px-4 py-3 text-sm text-right">R {(r.revenue || 0).toLocaleString()}</td>
+                      <td className="px-4 py-3 text-sm text-right font-semibold">R {(r.actualRevenue || 0).toLocaleString()}</td>
+                      <td className="px-4 py-3 text-sm text-right">R {(r.actualFuel || 0).toLocaleString()}</td>
+                      <td className="px-4 py-3 text-sm text-right font-semibold">R {actualPerTrip.toLocaleString()}</td>
                     </tr>
                   );
                 })}
+                {routeData.length === 0 && (
+                  <tr><td colSpan={7} className="px-4 py-8 text-center text-slate-500">No route data. Add jobs with origin/destination to see data here.</td></tr>
+                )}
               </tbody>
             </table>
           </div>
@@ -6325,43 +6418,59 @@ const ReportsModule = ({ company, config, budgets, actuals, budgetedRevenue = {}
       {activeReport === 'perTrip' && (
         <div className="bg-white rounded-xl border shadow-sm overflow-hidden">
           <div className="p-4 border-b bg-slate-50">
-            <h3 className="font-semibold">Budget vs Actual by Trip</h3>
+            <h3 className="font-semibold">Trip-Level Analysis (From Jobs)</h3>
+            <p className="text-xs text-slate-500 mt-1">{jobs.length} jobs recorded</p>
           </div>
-          <table className="w-full">
-            <thead className="bg-slate-50 border-b">
-              <tr>
-                <th className="px-4 py-3 text-left text-xs font-medium text-slate-600">Trip ID</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-slate-600">Date</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-slate-600">Truck</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-slate-600">Route</th>
-                <th className="px-4 py-3 text-right text-xs font-medium text-slate-600">Budget Rev</th>
-                <th className="px-4 py-3 text-right text-xs font-medium text-slate-600">Actual Rev</th>
-                <th className="px-4 py-3 text-right text-xs font-medium text-slate-600">Budget Fuel</th>
-                <th className="px-4 py-3 text-right text-xs font-medium text-slate-600">Actual Fuel</th>
-                <th className="px-4 py-3 text-right text-xs font-medium text-slate-600">Profit Var</th>
-              </tr>
-            </thead>
-            <tbody>
-              {(companyActuals.byTrip || []).map(t => {
-                const profitVar = (t.actualRevenue - t.actualFuel - t.actualTolls) - (t.budgetRevenue - t.budgetFuel - t.budgetTolls);
-                return (
-                  <tr key={t.tripId} className="border-b hover:bg-slate-50">
-                    <td className="px-4 py-3 text-sm font-bold text-blue-600">{t.tripId}</td>
-                    <td className="px-4 py-3 text-sm">{t.date}</td>
-                    <td className="px-4 py-3 text-sm">{t.truck}</td>
-                    <td className="px-4 py-3 text-sm">{t.route}</td>
-                    <td className="px-4 py-3 text-sm text-right">R {t.budgetRevenue?.toLocaleString()}</td>
-                    <td className="px-4 py-3 text-sm text-right font-semibold">R {t.actualRevenue?.toLocaleString()}</td>
-                    <td className="px-4 py-3 text-sm text-right">R {t.budgetFuel?.toLocaleString()}</td>
-                    <td className="px-4 py-3 text-sm text-right font-semibold">R {t.actualFuel?.toLocaleString()}</td>
-                    <td className={`px-4 py-3 text-sm text-right font-bold ${profitVar >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>
-                      {profitVar >= 0 ? '+' : ''}R {profitVar.toLocaleString()}
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead className="bg-slate-50 border-b">
+                <tr>
+                  <th className="px-3 py-3 text-left text-xs font-medium text-slate-600">Job No</th>
+                  <th className="px-3 py-3 text-left text-xs font-medium text-slate-600">Date</th>
+                  <th className="px-3 py-3 text-left text-xs font-medium text-slate-600">Customer</th>
+                  <th className="px-3 py-3 text-left text-xs font-medium text-slate-600">Truck</th>
+                  <th className="px-3 py-3 text-left text-xs font-medium text-slate-600">Route</th>
+                  <th className="px-3 py-3 text-right text-xs font-medium text-slate-600">Revenue</th>
+                  <th className="px-3 py-3 text-right text-xs font-medium text-slate-600">Fuel</th>
+                  <th className="px-3 py-3 text-right text-xs font-medium text-slate-600">Tolls</th>
+                  <th className="px-3 py-3 text-right text-xs font-medium text-slate-600">Total Costs</th>
+                  <th className="px-3 py-3 text-right text-xs font-medium text-slate-600">Profit</th>
+                  <th className="px-3 py-3 text-right text-xs font-medium text-slate-600">Margin</th>
+                  <th className="px-3 py-3 text-center text-xs font-medium text-slate-600">Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                {jobs.map(j => {
+                  const jCosts = (j.fuelCost||0)+(j.tollCost||0)+(j.repairsCost||0)+(j.tyresCost||0)+(j.travelAllowance||0)+(j.parkingFees||0)+(j.depreciationCost||0)+(j.licensingCost||0)+(j.insuranceCost||0)+(j.loadingCost||0)+(j.otherCosts||0);
+                  const profit = (j.revenue||0) - jCosts;
+                  const margin = (j.revenue||0) > 0 ? (profit / j.revenue * 100) : 0;
+                  return (
+                    <tr key={j.id} className="border-b hover:bg-slate-50 text-xs">
+                      <td className="px-3 py-2 font-bold text-blue-600">{j.jobNo}</td>
+                      <td className="px-3 py-2">{j.date}</td>
+                      <td className="px-3 py-2">{j.customer}</td>
+                      <td className="px-3 py-2">{j.truck}</td>
+                      <td className="px-3 py-2">{j.origin} → {j.destination}</td>
+                      <td className="px-3 py-2 text-right font-semibold">R {(j.revenue||0).toLocaleString()}</td>
+                      <td className="px-3 py-2 text-right">R {(j.fuelCost||0).toLocaleString()}</td>
+                      <td className="px-3 py-2 text-right">R {(j.tollCost||0).toLocaleString()}</td>
+                      <td className="px-3 py-2 text-right text-red-600">R {jCosts.toLocaleString()}</td>
+                      <td className={`px-3 py-2 text-right font-bold ${profit >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>R {profit.toLocaleString()}</td>
+                      <td className={`px-3 py-2 text-right ${margin >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>{margin.toFixed(1)}%</td>
+                      <td className="px-3 py-2 text-center">
+                        <Badge variant={j.status === 'Completed' ? 'success' : j.status === 'In Transit' ? 'info' : j.status === 'Scheduled' ? 'warning' : 'danger'}>
+                          {j.status}
+                        </Badge>
+                      </td>
+                    </tr>
+                  );
+                })}
+                {jobs.length === 0 && (
+                  <tr><td colSpan={12} className="px-4 py-8 text-center text-slate-500">No jobs recorded. Add jobs in the Jobs tab to see trip-level data here.</td></tr>
+                )}
+              </tbody>
+            </table>
+          </div>
         </div>
       )}
 
@@ -6431,61 +6540,132 @@ const ReportsModule = ({ company, config, budgets, actuals, budgetedRevenue = {}
       {/* Year on Year Report */}
       {activeReport === 'yearOnYear' && (
         <div className="space-y-6">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div className="bg-white rounded-xl border p-5">
-              <p className="text-sm text-slate-500 mb-2">2024 (Full Year)</p>
-              <p className="text-2xl font-bold text-slate-900">R {(companyYOY['2024']?.revenue || 0).toLocaleString()}</p>
-              <p className="text-sm text-emerald-600">Profit: R {(companyYOY['2024']?.profit || 0).toLocaleString()}</p>
-            </div>
-            <div className="bg-blue-50 rounded-xl border border-blue-200 p-5">
-              <p className="text-sm text-blue-600 mb-2">2025 Budget (Full Year)</p>
-              <p className="text-2xl font-bold text-blue-900">R {(companyYOY['2025']?.revenue || 0).toLocaleString()}</p>
-              <p className="text-sm text-blue-600">Target Profit: R {(companyYOY['2025']?.profit || 0).toLocaleString()}</p>
-            </div>
-            <div className="bg-emerald-50 rounded-xl border border-emerald-200 p-5">
-              <p className="text-sm text-emerald-600 mb-2">2025 YTD Actual</p>
-              <p className="text-2xl font-bold text-emerald-900">R {(companyYOY['2025-YTD']?.revenue || 0).toLocaleString()}</p>
-              <p className="text-sm text-emerald-600">Actual Profit: R {(companyYOY['2025-YTD']?.profit || 0).toLocaleString()}</p>
-            </div>
-          </div>
+          {(() => {
+            const actualYears = computedYOY.actuals;
+            const budgetYears = computedYOY.budgets;
+            const sortedYears = Object.keys(actualYears).sort();
+            const currentYear = new Date().getFullYear().toString();
+            const prevYear = (parseInt(currentYear) - 1).toString();
 
-          <div className="bg-white rounded-xl border p-6">
-            <h3 className="font-semibold mb-4">Year-over-Year Comparison</h3>
-            <ResponsiveContainer width="100%" height={300}>
-              <BarChart data={[
-                { year: '2024 Actual', revenue: companyYOY['2024']?.revenue || 0, expenses: companyYOY['2024']?.expenses || 0, profit: companyYOY['2024']?.profit || 0 },
-                { year: '2025 Budget', revenue: companyYOY['2025']?.revenue || 0, expenses: companyYOY['2025']?.expenses || 0, profit: companyYOY['2025']?.profit || 0 },
-                { year: '2025 YTD', revenue: companyYOY['2025-YTD']?.revenue || 0, expenses: companyYOY['2025-YTD']?.expenses || 0, profit: companyYOY['2025-YTD']?.profit || 0 },
-              ]}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="year" />
-                <YAxis tickFormatter={(v) => `R${(v/1000000).toFixed(1)}M`} />
-                <Tooltip formatter={(v) => `R ${v.toLocaleString()}`} />
-                <Legend />
-                <Bar dataKey="revenue" fill="#10b981" name="Revenue" />
-                <Bar dataKey="expenses" fill="#ef4444" name="Expenses" />
-                <Bar dataKey="profit" fill="#8b5cf6" name="Profit" />
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
+            return (
+              <>
+                {/* Year Cards */}
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  {sortedYears.map(year => (
+                    <div key={year} className={`rounded-xl border p-5 ${year === currentYear ? 'bg-emerald-50 border-emerald-200' : 'bg-white'}`}>
+                      <p className="text-sm text-slate-500 mb-2">{year} Actual ({actualYears[year].months} months)</p>
+                      <p className="text-2xl font-bold text-slate-900">R {Math.round(actualYears[year].revenue).toLocaleString()}</p>
+                      <p className={`text-sm ${actualYears[year].profit >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>
+                        Profit: R {Math.round(actualYears[year].profit).toLocaleString()}
+                      </p>
+                    </div>
+                  ))}
+                  {budgetYears[currentYear] && (
+                    <div className="bg-blue-50 rounded-xl border border-blue-200 p-5">
+                      <p className="text-sm text-blue-600 mb-2">{currentYear} Budget (Full Year)</p>
+                      <p className="text-2xl font-bold text-blue-900">R {Math.round(budgetYears[currentYear].revenue).toLocaleString()}</p>
+                      <p className="text-sm text-blue-600">Target Profit: R {Math.round(budgetYears[currentYear].profit).toLocaleString()}</p>
+                    </div>
+                  )}
+                </div>
 
-          <div className="bg-white rounded-xl border p-6">
-            <h3 className="font-semibold mb-4">Growth Analysis</h3>
-            <div className="grid grid-cols-3 gap-6">
-              <div className="text-center p-4 bg-slate-50 rounded-lg">
-                <p className="text-sm text-slate-500 mb-2">Revenue Growth (Budget vs 2024)</p>
-                <p className="text-3xl font-bold text-emerald-600">+{(((companyYOY['2025']?.revenue || 0) - (companyYOY['2024']?.revenue || 0)) / (companyYOY['2024']?.revenue || 1) * 100).toFixed(1)}%</p>
-              </div>
-              <div className="text-center p-4 bg-slate-50 rounded-lg">
-                <p className="text-sm text-slate-500 mb-2">Profit Growth (Budget vs 2024)</p>
-                <p className="text-3xl font-bold text-emerald-600">+{(((companyYOY['2025']?.profit || 0) - (companyYOY['2024']?.profit || 0)) / (companyYOY['2024']?.profit || 1) * 100).toFixed(1)}%</p>
-              </div>
-              <div className="text-center p-4 bg-slate-50 rounded-lg">
-                <p className="text-sm text-slate-500 mb-2">YTD Achievement</p>
-                <p className="text-3xl font-bold text-blue-600">{((companyYOY['2025-YTD']?.revenue || 0) / (companyYOY['2025']?.revenue || 1) * 100).toFixed(1)}%</p>
-              </div>
-            </div>
-          </div>
+                {/* YoY Comparison Chart */}
+                <div className="bg-white rounded-xl border p-6 chart-container">
+                  <h3 className="font-semibold mb-4">Year-over-Year Comparison</h3>
+                  <ResponsiveContainer width="100%" height={300}>
+                    <BarChart data={[
+                      ...sortedYears.map(year => ({
+                        year: `${year} Actual`, revenue: Math.round(actualYears[year].revenue),
+                        expenses: Math.round(actualYears[year].expenses), profit: Math.round(actualYears[year].profit),
+                      })),
+                      ...(budgetYears[currentYear] ? [{
+                        year: `${currentYear} Budget`, revenue: Math.round(budgetYears[currentYear].revenue),
+                        expenses: Math.round(budgetYears[currentYear].expenses), profit: Math.round(budgetYears[currentYear].profit),
+                      }] : []),
+                    ]}>
+                      <CartesianGrid strokeDasharray="3 3" />
+                      <XAxis dataKey="year" />
+                      <YAxis tickFormatter={(v) => `R${(v/1000000).toFixed(1)}M`} />
+                      <Tooltip formatter={(v) => `R ${v.toLocaleString()}`} />
+                      <Legend />
+                      <Bar dataKey="revenue" fill="#10b981" name="Revenue" />
+                      <Bar dataKey="expenses" fill="#ef4444" name="Expenses" />
+                      <Bar dataKey="profit" fill="#8b5cf6" name="Profit" />
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+
+                {/* Growth Analysis */}
+                <div className="bg-white rounded-xl border p-6">
+                  <h3 className="font-semibold mb-4">Growth Analysis</h3>
+                  <div className="grid grid-cols-3 gap-6">
+                    <div className="text-center p-4 bg-slate-50 rounded-lg">
+                      <p className="text-sm text-slate-500 mb-2">Revenue Growth ({prevYear} → {currentYear})</p>
+                      <p className={`text-3xl font-bold ${(actualYears[currentYear]?.revenue || 0) >= (actualYears[prevYear]?.revenue || 0) ? 'text-emerald-600' : 'text-red-600'}`}>
+                        {actualYears[prevYear]?.revenue ? (((actualYears[currentYear]?.revenue || 0) - actualYears[prevYear].revenue) / actualYears[prevYear].revenue * 100).toFixed(1) : 'N/A'}%
+                      </p>
+                    </div>
+                    <div className="text-center p-4 bg-slate-50 rounded-lg">
+                      <p className="text-sm text-slate-500 mb-2">Profit Growth ({prevYear} → {currentYear})</p>
+                      <p className={`text-3xl font-bold ${(actualYears[currentYear]?.profit || 0) >= (actualYears[prevYear]?.profit || 0) ? 'text-emerald-600' : 'text-red-600'}`}>
+                        {actualYears[prevYear]?.profit ? (((actualYears[currentYear]?.profit || 0) - actualYears[prevYear].profit) / Math.abs(actualYears[prevYear].profit) * 100).toFixed(1) : 'N/A'}%
+                      </p>
+                    </div>
+                    <div className="text-center p-4 bg-slate-50 rounded-lg">
+                      <p className="text-sm text-slate-500 mb-2">{currentYear} Budget Achievement</p>
+                      <p className="text-3xl font-bold text-blue-600">
+                        {budgetYears[currentYear]?.revenue ? ((actualYears[currentYear]?.revenue || 0) / budgetYears[currentYear].revenue * 100).toFixed(1) : 'N/A'}%
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Detailed Year Comparison Table */}
+                <div className="bg-white rounded-xl border shadow-sm overflow-hidden">
+                  <div className="p-4 border-b bg-slate-50">
+                    <h3 className="font-semibold">Detailed Year Comparison</h3>
+                  </div>
+                  <table className="w-full">
+                    <thead className="bg-slate-50 border-b">
+                      <tr>
+                        <th className="px-4 py-3 text-left text-xs font-medium text-slate-600">Year</th>
+                        <th className="px-4 py-3 text-left text-xs font-medium text-slate-600">Type</th>
+                        <th className="px-4 py-3 text-right text-xs font-medium text-slate-600">Revenue</th>
+                        <th className="px-4 py-3 text-right text-xs font-medium text-slate-600">Expenses</th>
+                        <th className="px-4 py-3 text-right text-xs font-medium text-slate-600">Profit</th>
+                        <th className="px-4 py-3 text-right text-xs font-medium text-slate-600">Margin</th>
+                        <th className="px-4 py-3 text-right text-xs font-medium text-slate-600">Months</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {sortedYears.map(year => (
+                        <tr key={year} className="border-b hover:bg-slate-50">
+                          <td className="px-4 py-3 text-sm font-bold">{year}</td>
+                          <td className="px-4 py-3 text-sm"><Badge variant="success">Actual</Badge></td>
+                          <td className="px-4 py-3 text-sm text-right font-semibold">R {Math.round(actualYears[year].revenue).toLocaleString()}</td>
+                          <td className="px-4 py-3 text-sm text-right text-red-600">R {Math.round(actualYears[year].expenses).toLocaleString()}</td>
+                          <td className={`px-4 py-3 text-sm text-right font-bold ${actualYears[year].profit >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>R {Math.round(actualYears[year].profit).toLocaleString()}</td>
+                          <td className="px-4 py-3 text-sm text-right">{actualYears[year].revenue ? (actualYears[year].profit / actualYears[year].revenue * 100).toFixed(1) : 0}%</td>
+                          <td className="px-4 py-3 text-sm text-right">{actualYears[year].months}</td>
+                        </tr>
+                      ))}
+                      {Object.keys(budgetYears).sort().map(year => (
+                        <tr key={`budget-${year}`} className="border-b hover:bg-blue-50/30">
+                          <td className="px-4 py-3 text-sm font-bold">{year}</td>
+                          <td className="px-4 py-3 text-sm"><Badge variant="info">Budget</Badge></td>
+                          <td className="px-4 py-3 text-sm text-right">R {Math.round(budgetYears[year].revenue).toLocaleString()}</td>
+                          <td className="px-4 py-3 text-sm text-right">R {Math.round(budgetYears[year].expenses).toLocaleString()}</td>
+                          <td className="px-4 py-3 text-sm text-right">R {Math.round(budgetYears[year].profit).toLocaleString()}</td>
+                          <td className="px-4 py-3 text-sm text-right">{budgetYears[year].revenue ? (budgetYears[year].profit / budgetYears[year].revenue * 100).toFixed(1) : 0}%</td>
+                          <td className="px-4 py-3 text-sm text-right">12</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </>
+            );
+          })()}
         </div>
       )}
 
